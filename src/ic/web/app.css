@@ -101,6 +101,40 @@ input[type=text]::placeholder{color:var(--ink-3)}
 .btn.ghost{background:transparent; border-color:var(--edge); color:var(--ink-3); box-shadow:none}
 .btn.ghost:hover:not(:disabled){color:var(--ink); border-color:var(--edge-hi)}
 
+/* --------------------------------------------------------- disciplines */
+
+.templates{display:flex; gap:var(--s1); margin-bottom:var(--s3)}
+.seg{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.12em;
+  text-transform:uppercase; font-weight:500;
+  padding:9px var(--s4); min-height:36px; border-radius:var(--r);
+  border:1px solid var(--edge); background:transparent; color:var(--ink-3);
+  transition:color .18s ease, border-color .18s ease, background .18s ease;
+}
+.seg:hover:not(:disabled){color:var(--ink-2); border-color:var(--edge-hi)}
+.seg:disabled{opacity:.4; cursor:default}
+.seg.on{color:var(--ink); border-color:currentColor;
+  background:rgba(255,255,255,.05)}
+.seg.on[data-kind=fire]{color:var(--fire)}
+.seg.on[data-kind=ems]{color:var(--ems)}
+.seg.on[data-kind=police]{color:var(--police)}
+
+/* The follow-up line. A call is not one sentence, so this stays available for
+   as long as the incident is open. */
+#followup{display:flex; gap:var(--s2); margin:calc(-1 * var(--s2)) 0 var(--s5);
+  flex-wrap:wrap}
+#followup input[type=text]{flex:1 1 420px}
+
+/* A row whose state or value moved on the last update. An update otherwise
+   lands as a wall of identical rows and the one thing that changed is the one
+   thing nobody spots. Fades, because it matters for a moment, not forever. */
+@keyframes settle{from{background:rgba(255,255,255,.10)} to{background:transparent}}
+.row.moved{animation:settle 2.4s ease-out forwards; border-left:2px solid var(--ink-2);
+  padding-left:var(--s2); margin-left:calc(-1 * var(--s2) - 2px)}
+@media (prefers-reduced-motion:reduce){
+  .row.moved{animation:none; background:rgba(255,255,255,.05)}
+}
+
 
 /* ------------------------------------------------------------------ grid */
 

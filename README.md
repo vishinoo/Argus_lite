@@ -100,6 +100,54 @@ eventually get someone hurt.
 test that tries to build an unattributed claim, we could not do it without
 deliberately bypassing the constructor.
 
+## A call is not one sentence
+
+The line stays open. The smoke changes colour, somebody gets out, the patient
+turns out to be nine floors up — and each of those either fills a gap or
+contradicts something already recorded.
+
+```bash
+ic run "Cardiac arrest at 233 S Wacker Drive, Chicago. Bystander performing CPR." \
+  --update "Caller now says the patient is on the 9th floor"
+```
+
+Everything said is posted on every run; the server keeps no session. Each
+statement stays REPORTED, because arriving later does not make a caller a
+record — but classification, extraction and the contradiction checks all run
+over the whole call, so an update can change what kind of incident this is, add
+people the first sentence never mentioned, or disagree with the building record
+and be carried as CONTRADICTED.
+
+In the console the picture marks what moved, because an update otherwise lands
+as a wall of identical rows and the one thing that changed is the one thing
+nobody spots.
+
+## Three disciplines, three sets of advice
+
+An earlier version gave every incident the fire treatment, which on a report of
+shots fired meant recommending a ladder company and the nearest hydrant. That
+is the kind of error anyone operational spots in a second.
+
+```
+  FIRE     upwind approach side · what is in the plume · water supply ·
+           which engine arrives from which side · aerial access above
+           ground-ladder reach
+  EMS      the floor the patient is on, however the caller phrased it ·
+           lift and stretcher route · transport destination, flagged
+           TIME-CRITICAL when the caller describes one
+  POLICE   who is close enough to matter — a school inside 500 m is a
+           lockdown decision somebody has to make early
+```
+
+The EMS one prefers the caller's floor to the building's height, because the
+building's height was never the question, and because for the towers where it
+matters most OpenStreetMap frequently has no height at all.
+
+It also will not call a destination an emergency department. `amenity=hospital`
+covers counselling clinics and outpatient surgery centres, and live this
+recommended transporting a cardiac arrest to "Cityscape Counseling" under that
+heading. The nearest *mapped hospital* is what the evidence supports.
+
 ## The evidence chain
 
 The brief is visibly *constructed from evidence* rather than produced whole:
@@ -166,8 +214,8 @@ ic eval
     workflows completed                     100/100
     incident classification                 100.0%
     location extraction                     100.0%
-    required fields extracted                88.0%
-    schema completeness                      86.8%
+    required fields extracted               100.0%
+    schema completeness                      97.2%
     behavioural checks passed               234/234
     structured extraction accuracy          100.0%
     tool-call success rate                   99.7%
@@ -178,11 +226,17 @@ ic eval
     actions completed                    490/490
 ```
 
-Two of those numbers are not 100% and we have left them that way. `required
-fields extracted` is 88% because some incidents genuinely have fields no public
-source can fill, and `schema completeness` is 86.8% for the same reason. A
-system whose own scorecard reads 100% across the board is measuring how
-flattering its metrics are, not how well it works.
+`required fields extracted` reached 100% by fixing a bug, not by lowering the
+bar. The eval kept its own copy of the schema's required fields; the copy
+drifted, and it was grading against `hazards` while the picture had been
+renamed to emit `external hazards`. The gap could never close, so the planner
+held it open and completeness was understated on every fire and gas call — 36
+of 36. The eval now derives its expectations from the schema, which is why
+there is one table instead of two.
+
+`schema completeness` is 97.2% and stays there. Some incidents genuinely have
+fields no public source can fill, and a scorecard reading 100% across the board
+is measuring how flattering its metrics are.
 
 A hundred incidents across fire, medical, gas, armed, missing-person,
 bad-address and evidence-quality categories. Twenty are hand-written and carry
@@ -318,7 +372,7 @@ $7,000 above is a model-spend number, not a total cost of ownership.
 pip install -e .
 ic run "Structure fire at 1001 Van Ness Avenue, San Francisco"   # warms the cache
 ic serve                                                          # then demo from here
-pytest -q          # 226 tests
+pytest -q          # 278 tests
 ```
 
 No API keys required — every fact-gathering source is keyless, and the brief

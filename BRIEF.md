@@ -61,8 +61,8 @@ about a place that may not exist.
 workflows completed                     100/100
 incident classification                 100.0%
 location extraction                     100.0%
-required fields extracted                88.0%
-schema completeness                      86.8%
+required fields extracted               100.0%
+schema completeness                      97.2%
 behavioural checks passed               234/234
 structured extraction accuracy          100.0%
 tool-call success rate                   99.7%
@@ -73,12 +73,18 @@ refusals correctly escalated               2/2
 actions completed                    490/490
 ```
 
-Plus 226 unit tests.
+Plus 278 unit tests.
 
-**Two of those numbers are not 100% and we left them that way.** Required-field
-extraction is 88% because some incidents genuinely have fields no public source
-can fill. A scorecard reading 100% everywhere measures how flattering the
-metrics are.
+**`schema completeness` is 97.2% and stays there.** Some incidents genuinely
+have fields no public source can fill. A scorecard reading 100% everywhere
+measures how flattering the metrics are.
+
+**Required-field extraction reached 100% by fixing a bug, not lowering a bar.**
+The eval kept a second copy of the schema's required fields. It drifted: it
+graded against `hazards` while the picture had been renamed to emit `external
+hazards`, so that gap could never close and completeness was understated on
+every fire and gas call — 36 of 36. The eval now derives its expectations from
+the schema.
 
 **We test the tests.** Every check is run against a deliberately broken result
 and must reject it. That negative control caught one of our own checks that

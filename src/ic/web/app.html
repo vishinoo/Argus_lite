@@ -25,13 +25,24 @@
     <span class="integrations" id="integrations" aria-live="polite"></span>
   </header>
 
+  <div class="templates" id="templates" role="group" aria-label="Incident type">
+    <button type="button" class="seg on" data-kind="fire">Fire</button>
+    <button type="button" class="seg" data-kind="ems">EMS</button>
+    <button type="button" class="seg" data-kind="police">Police</button>
+  </div>
+
   <form id="form">
     <label class="sr" for="text">What were you told?</label>
     <input type="text" id="text" name="text" autocomplete="off"
-      value="Structure fire at 1001 Van Ness Avenue, San Francisco. Caller reports smoke from the second floor and someone may still be inside."
       placeholder="Structure fire at 1001 Van Ness Avenue, someone may still be inside">
     <button type="submit" class="btn" id="go">Work the incident</button>
-    <button type="button" class="btn ghost" id="fail">Try a bad address</button>
+  </form>
+
+  <form id="followup" hidden>
+    <label class="sr" for="more">What else has come in?</label>
+    <input type="text" id="more" autocomplete="off"
+      placeholder="Caller now says…">
+    <button type="submit" class="btn ghost" id="add">Add to the call</button>
   </form>
   <div class="work">
     <nav class="rail glass" id="rail" aria-label="Agent stages"></nav>

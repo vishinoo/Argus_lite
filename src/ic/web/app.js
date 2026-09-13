@@ -26,6 +26,33 @@ const GLYPH = {
   UNKNOWN: "?",              // nobody has established this
 };
 
+/* One opening line per discipline, and a plausible second thing the caller
+   says. The follow-up is the point: a call is not one sentence, and the
+   picture has to move when the second sentence arrives. */
+const TEMPLATES = {
+  fire: {
+    text: "Structure fire at 1001 Van Ness Avenue, San Francisco. Caller reports smoke from the second floor and someone may still be inside.",
+    then: "Caller now says two people are still inside",
+  },
+  ems: {
+    text: "Cardiac arrest at 233 S Wacker Drive, Chicago. Bystander performing CPR, patient unresponsive.",
+    then: "Caller now says the patient is on the 9th floor",
+  },
+  police: {
+    text: "Shots reported at 350 5th Avenue, New York. One person down, suspect seen leaving on foot.",
+    then: "Caller now says the suspect is still on scene",
+  },
+};
+
+/* Everything the caller has said, in order. The opening line plus these is the
+   whole call, and every run posts the lot: the server holds no session. */
+let updates = [];
+let incidentId = null;
+/* field -> state, from the last render, so a row that moved can be shown as
+   having moved. Without this an update lands as a wall of identical rows and
+   the one thing that changed is the thing nobody spots. */
+let previous = null;
+
 const $ = (id) => document.getElementById(id);
 const rail = $("rail");
 const out = $("out");
@@ -61,8 +88,13 @@ function startClock() {
 }
 function stopClock() { clearInterval(ticker); ticker = null; }
 
+function setBusy(busy) {
+  $("go").disabled = $("add").disabled = busy;
+  document.querySelectorAll(".seg").forEach((b) => (b.disabled = busy));
+}
+
 async function run(text) {
-  $("go").disabled = $("fail").disabled = true;
+  setBusy(true);
   out.innerHTML = "";
   document.querySelectorAll(".aside").forEach((n) => n.remove());
   const states = { observe: "done", investigate: "active" };
@@ -74,7 +106,7 @@ async function run(text) {
     const res = await fetch("/api/run", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, updates, incident_id: incidentId }),
     });
     data = await res.json();
     stopClock();
@@ -84,12 +116,35 @@ async function run(text) {
     out.innerHTML = `<div class="refusal glass"><h2>Could not run</h2>
       <p>${esc(err.message)}</p></div>`;
     drawRail({ observe: "done", investigate: "blocked" });
-    $("go").disabled = $("fail").disabled = false;
+    setBusy(false);
     return;
   }
 
+  incidentId = data.incident.id || incidentId;
   await render(data, states);
-  $("go").disabled = $("fail").disabled = false;
+  remember(data.brief.picture);
+  $("followup").hidden = false;
+  setBusy(false);
+}
+
+/* What the picture said last time, so the next render can mark what moved. */
+const STATE_KEYS = ["situation", "people", "threats", "exposures", "resources",
+                    "approach", "open_questions"];
+
+function remember(picture) {
+  previous = new Map();
+  if (!picture) return;
+  for (const key of STATE_KEYS) {
+    for (const a of picture[key] || []) {
+      previous.set(a.field, `${a.status}|${a.value ?? ""}`);
+    }
+  }
+}
+
+function movedSince(a) {
+  if (!previous) return false;
+  const now = `${a.status}|${a.value ?? ""}`;
+  return !previous.has(a.field) || previous.get(a.field) !== now;
 }
 
 async function render(data, states) {
@@ -181,7 +236,7 @@ function picturePanel(brief, data) {
     if (!items.length) return "";
     return `<div class="section"><h3>${title}</h3>
       ${items.map((a) => `
-        <div class="row">
+        <div class="row${movedSince(a) ? " moved" : ""}">
           <span class="state" data-s="${esc(a.status)}" title="${esc(a.status)}"
                 aria-label="${esc(a.status)}">${GLYPH[a.status] || "\u00b7"}</span>
           <span class="field">${esc(a.field)}</span>
@@ -285,11 +340,41 @@ async function integrations() {
   } catch { /* header detail only; never block the run */ }
 }
 
-$("form").addEventListener("submit", (e) => { e.preventDefault(); run($("text").value); });
-$("fail").addEventListener("click", () => {
-  $("text").value = "Fire at 999999 Unknown Avenue, San Francisco";
+$("form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  // A new opening line is a new call, not a continuation of the last one.
+  updates = [];
+  incidentId = null;
+  previous = null;
+  $("followup").hidden = true;
   run($("text").value);
 });
+
+$("followup").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const said = $("more").value.trim();
+  if (!said) return;
+  updates.push(said);
+  $("more").value = "";
+  run($("text").value);
+});
+
+$("templates").addEventListener("click", (e) => {
+  const button = e.target.closest(".seg");
+  if (!button) return;
+  const template = TEMPLATES[button.dataset.kind];
+  if (!template) return;
+  document.querySelectorAll(".seg").forEach((b) => b.classList.toggle("on", b === button));
+  $("text").value = template.text;
+  $("more").placeholder = template.then;
+  updates = [];
+  incidentId = null;
+  previous = null;
+  $("followup").hidden = true;
+});
+
+$("text").value = TEMPLATES.fire.text;
+$("more").placeholder = TEMPLATES.fire.then;
 
 drawRail();
 integrations();

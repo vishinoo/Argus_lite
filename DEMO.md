@@ -12,7 +12,8 @@ maps, web sources and comms tools before they have a picture. We automated
 that."
 
 **2 · The run (40s).** Use the console — `ic serve`, then
-`http://127.0.0.1:8000`. Or the terminal:
+`http://127.0.0.1:8000`. **Fire / EMS / Police** switch the opening line; the
+three are not cosmetic, and step 2b is where that shows. Or the terminal:
 ```bash
 ic run "Structure fire at 1001 Van Ness Avenue, San Francisco. \
 Caller reports smoke from the second floor and someone may still be inside." \
@@ -28,9 +29,26 @@ Point at three things, in this order:
    These are different sentences and we refuse to render them the same."
    The aerial above them is the real building at those coordinates.
 3. **`sought:` on the survey call** — "we never told it to call that tool. The
-   schema said occupancy was unknown; it went and found out."
+   schema said the building was unknown; it went and found out."
 
-**3 · The refusal (20s).** Click **Try a bad address** in the console, or:
+**2b · The second sentence (20s).** This is the one to land. Switch to **EMS**,
+run it, then type into the follow-up box:
+
+```
+Caller now says the patient is on the 9th floor
+```
+
+A new row appears and is marked as having moved: *CONSIDER: patient reported on
+floor 9 — confirm lift availability and a stretcher route*. Say: "a call is not
+one sentence. It stays REPORTED — the caller said it, nobody verified it — but
+the picture moved." Willis Tower has no height in OpenStreetMap, so the caller
+is the only source for the number that decides the carry.
+
+Switch to **Police** and point at what is *missing*: no hydrant, no responding
+engine, no ladder company. "It gave every incident the fire treatment until we
+caught it."
+
+**3 · The refusal (20s).** Type an address that does not exist — or:
 ```bash
 ic run "Fire at 999999 Unknown Avenue, San Francisco" --execute
 ```
