@@ -1,0 +1,216 @@
+/* Argus Incident Commander — console.
+   The ARGUS prototype's language, carried over: a black void, glass panels
+   with an inset highlight and a deep shadow, Archivo over IBM Plex Mono, and
+   a 14px radius on everything. */
+
+:root{
+  --void:#000; --ink:#F2F4F6; --ink-2:#A9B1B8; --ink-3:#7C858D;
+  --glass:rgba(9,11,13,.62); --edge:rgba(255,255,255,.10); --edge-hi:rgba(255,255,255,.20);
+  --steel:#C9D3DA; --accent:#FFFFFF; --alert:#C0484E; --dim:#7E8C96;
+  --fire:#E5544F; --ems:#2FBF87; --police:#4C8FE8; --ok:#3FCF8E;
+  --r:14px;
+  --ui:'Archivo',system-ui,-apple-system,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+
+  /* One colour per evidence state, drawn from the prototype's palette. No
+     amber anywhere. Colour is never the only signal — every state also
+     carries its word, because colour alone fails on a bad projector and for
+     roughly one man in twelve. */
+  --verified:     var(--ok);
+  --reported:     var(--steel);
+  --inferred:     var(--police);
+  --contradicted: #B98CFF;
+  --unknown:      var(--fire);
+
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--void); color:var(--ink);
+  font-family:var(--ui); font-size:13px; line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* Glass needs something behind it or it is just a grey box. A faint grid and
+   a low glow give the panels something to sit on without competing. */
+body::before{
+  content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(60% 42% at 50% 0%, rgba(76,143,232,.09), transparent 70%),
+    radial-gradient(48% 40% at 88% 22%, rgba(229,84,79,.05), transparent 70%),
+    linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px) 0 0/100% 46px,
+    linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px) 0 0/46px 100%;
+}
+.shell{position:relative; z-index:1; max-width:1180px; margin:0 auto; padding:var(--s5) var(--s4) var(--s7)}
+
+:focus-visible{outline:1px solid var(--accent); outline-offset:3px; border-radius:4px}
+button{font:inherit; color:inherit; background:none; border:none; cursor:pointer}
+
+.glass{
+  background:var(--glass);
+  backdrop-filter:blur(26px) saturate(1.15);
+  -webkit-backdrop-filter:blur(26px) saturate(1.15);
+  border:1px solid var(--edge); border-radius:var(--r);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 22px 54px rgba(0,0,0,.62);
+}
+.eyebrow{font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-3); font-weight:500}
+.mono{font-family:var(--mono); font-variant-numeric:tabular-nums}
+
+/* ---------------------------------------------------------------- header */
+
+header{display:flex; align-items:center; gap:var(--s3); padding:var(--s3) var(--s4); margin-bottom:var(--s5)}
+.gicon{
+  width:32px; height:32px; border-radius:9px; flex:none; display:grid; place-items:center;
+  color:var(--ink-2);
+  background:linear-gradient(152deg, rgba(255,255,255,.13), rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.13);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 4px 14px rgba(0,0,0,.5);
+}
+.gicon svg{width:17px; height:17px}
+.brand b{font-size:14px; font-weight:600; letter-spacing:.14em}
+.brand span{color:var(--ink-3); font-weight:400}
+.brand .sub{display:block; color:var(--ink-3); font-size:11px; letter-spacing:.01em; margin-top:1px}
+.integrations{margin-left:auto; font-family:var(--mono); font-size:10.5px; color:var(--ink-3)}
+.integrations b{color:var(--ink); font-weight:500}
+
+/* ------------------------------------------------------------------ form */
+
+form{display:flex; gap:var(--s2); margin-bottom:var(--s3); flex-wrap:wrap}
+label.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)}
+input[type=text]{
+  flex:1 1 420px; min-width:0; color:var(--ink);
+  background:rgba(255,255,255,.04); border:1px solid var(--edge);
+  border-radius:var(--r); padding:13px var(--s4);
+  font-family:var(--ui); font-size:13px; transition:border-color .18s ease, background .18s ease;
+}
+input[type=text]:hover{border-color:var(--edge-hi); background:rgba(255,255,255,.06)}
+input[type=text]::placeholder{color:var(--ink-3)}
+
+.btn{
+  font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+  border-radius:var(--r); padding:13px var(--s5); min-height:44px; font-weight:500;
+  border:1px solid var(--edge-hi); color:var(--ink);
+  background:linear-gradient(152deg, rgba(255,255,255,.14), rgba(255,255,255,.03));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 4px 14px rgba(0,0,0,.5);
+  transition:filter .18s ease, opacity .18s ease;
+}
+.btn:hover:not(:disabled){filter:brightness(1.25)}
+.btn:disabled{opacity:.4; cursor:default}
+.btn.ghost{background:transparent; border-color:var(--edge); color:var(--ink-3); box-shadow:none}
+.btn.ghost:hover:not(:disabled){color:var(--ink); border-color:var(--edge-hi)}
+
+.hint{color:var(--ink-3); font-size:11.5px; font-family:var(--mono); margin:0 0 var(--s5)}
+.hint b{color:var(--ink-2); font-weight:400}
+
+/* ------------------------------------------------------------------ grid */
+
+.work{display:grid; grid-template-columns:198px 1fr; gap:var(--s4)}
+@media (max-width:860px){.work{grid-template-columns:1fr}}
+
+/* ------------------------------------------------------------ stage rail */
+
+.rail{position:sticky; top:var(--s4); align-self:start; padding:var(--s4) var(--s4) var(--s3)}
+.rail .eyebrow{margin-bottom:var(--s3)}
+.stage{display:grid; grid-template-columns:16px 1fr; gap:var(--s3); padding:var(--s2) 0; align-items:start}
+.stage .dot{
+  width:8px; height:8px; border-radius:50%; margin-top:5px; position:relative;
+  background:rgba(255,255,255,.18); transition:background .3s ease, box-shadow .3s ease;
+}
+.stage:not(:last-child) .dot::after{
+  content:""; position:absolute; left:3.5px; top:12px; width:1px; height:26px;
+  background:var(--edge);
+}
+.stage .name{font-family:var(--mono); font-size:10px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--ink-3); transition:color .3s ease}
+.stage .note{font-size:11px; color:var(--ink-3); opacity:.72; margin-top:1px}
+.stage[data-state=active] .dot{background:var(--steel); box-shadow:0 0 0 4px rgba(201,211,218,.13)}
+.stage[data-state=active] .name{color:var(--ink)}
+.stage[data-state=done] .dot{background:var(--ok)}
+.stage[data-state=done] .name{color:var(--ink-2)}
+.stage[data-state=blocked] .dot{background:var(--fire)}
+.stage[data-state=blocked] .name{color:var(--fire)}
+
+/* ---------------------------------------------------------------- panels */
+
+.panel{padding:var(--s4) var(--s5) var(--s5); margin-bottom:var(--s4)}
+.panel h2{font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--ink-3); margin:0 0 var(--s3); font-weight:500}
+.panel h2 .qualifier{color:var(--ink-3); text-transform:none; letter-spacing:.02em}
+
+/* ----------------------------------------------------------------- chain */
+
+.chain{font-family:var(--mono); font-size:11.5px}
+.chain .node{display:grid; grid-template-columns:14px 1fr; gap:var(--s3)}
+.chain .mark{color:var(--ok)}
+.chain .mark.bad{color:var(--fire)}
+.chain .what{color:var(--ink)}
+.chain .detail{color:var(--ink-2); padding:2px 0 var(--s3)}
+.chain .sought{color:var(--ink-3)}
+.chain .rule{color:rgba(255,255,255,.22)}
+
+/* ------------------------------------------------------------ assessment */
+
+.section + .section{margin-top:var(--s5)}
+.section h3{font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--ink-3); margin:0 0 var(--s2); font-weight:500}
+.section h3 .why{color:var(--ink-3); opacity:.7; text-transform:none; letter-spacing:.02em}
+
+.row{display:grid; grid-template-columns:118px 148px 1fr; gap:var(--s3);
+  padding:var(--s2) 0; border-top:1px solid var(--edge); align-items:baseline}
+@media (max-width:700px){.row{grid-template-columns:1fr; gap:2px}}
+
+.state{font-family:var(--mono); font-size:9.5px; font-weight:600; letter-spacing:.11em;
+  padding:3px 7px; border-radius:5px; border:1px solid currentColor; justify-self:start}
+.state[data-s=VERIFIED]{color:var(--verified)}
+.state[data-s=REPORTED]{color:var(--reported)}
+.state[data-s=INFERRED]{color:var(--inferred)}
+.state[data-s=CONTRADICTED]{color:var(--contradicted)}
+.state[data-s=UNKNOWN]{color:var(--unknown)}
+
+.field{font-family:var(--mono); font-size:11.5px; color:var(--ink-3)}
+.value{color:var(--ink)}
+.value .none{color:var(--ink-3)}
+.cite{display:block; color:var(--ink-3); opacity:.8; font-size:11px; margin-top:2px}
+
+/* An evidence id is a link to a row, not decoration: it is the difference
+   between naming a source and being checkable. */
+.ev{font-family:var(--mono); font-size:9.5px; letter-spacing:.06em;
+  color:var(--ink-3); border:1px solid var(--edge); border-radius:4px;
+  padding:1px 5px; margin-left:6px; white-space:nowrap}
+
+.ledger{font-family:var(--mono); font-size:11.5px}
+.ledger-row{display:grid; grid-template-columns:70px 130px 1fr; gap:var(--s3);
+  padding:var(--s2) 0; border-top:1px solid var(--edge); align-items:baseline}
+.ledger-row .ev{margin-left:0; justify-self:start}
+.ledger-row .cite{grid-column:2 / -1; margin-top:0}
+@media (max-width:700px){.ledger-row{grid-template-columns:1fr}}
+
+/* ----------------------------------------------------------- run record */
+
+.metrics{display:grid; grid-template-columns:repeat(auto-fit,minmax(122px,1fr)); gap:1px;
+  background:var(--edge); border:1px solid var(--edge); border-radius:10px; overflow:hidden}
+.metric{background:rgba(9,11,13,.72); padding:var(--s3) var(--s4)}
+.metric .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--ink-3)}
+.metric .v{font-family:var(--mono); font-size:18px; margin-top:2px; font-variant-numeric:tabular-nums}
+.metric .v.good{color:var(--ok)}
+.metric .v.warn{color:var(--steel)}
+.metric .v.bad{color:var(--fire)}
+
+/* -------------------------------------------------------------- refusal */
+
+.refusal{border-color:rgba(229,84,79,.45); border-left:3px solid var(--fire);
+  padding:var(--s4) var(--s5); margin-bottom:var(--s4)}
+.refusal h2{color:var(--fire)}
+.refusal p{margin:0; color:var(--ink-2)}
+
+.footnote{color:var(--ink-3); font-size:11.5px; margin:var(--s4) 0 0}
+
+/* One reveal, replaying the real tool latencies. Static under reduced motion. */
+.reveal{animation:rise .34s cubic-bezier(.2,.7,.3,1) both}
+@keyframes rise{from{opacity:0; transform:translateY(7px)} to{opacity:1; transform:none}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important; transition-duration:.001ms!important}
+}

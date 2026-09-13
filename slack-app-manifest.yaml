@@ -1,0 +1,30 @@
+# Paste into api.slack.com/apps → Create New App → From a manifest (YAML tab).
+#
+# Argus only calls *out* to Slack — it opens an incident channel and posts the
+# brief. Nothing in Slack calls back into Argus, so there are no event
+# subscriptions, no slash commands and no socket mode. Four bot scopes, one
+# xoxb- token, and that is the whole integration.
+#
+#   channels:manage    conversations.create — open #incident-<id>-<address>
+#   channels:read      conversations.list   — find the channel again on a rerun
+#   chat:write         chat.postMessage     — post the brief
+#   chat:write.public  post to a reused channel the bot has not joined
+display_information:
+  name: Argus Incident Commander
+  description: Opens an incident channel and posts the evidence-backed brief.
+  background_color: "#1d1f21"
+features:
+  bot_user:
+    display_name: Argus
+    always_online: false
+oauth_config:
+  scopes:
+    bot:
+      - channels:manage
+      - channels:read
+      - chat:write
+      - chat:write.public
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

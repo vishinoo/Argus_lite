@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Argus Incident Commander</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@200;300;400;500;600&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="shell">
+
+  <header class="glass">
+    <span class="gicon" aria-hidden="true">
+      <svg viewBox="0 0 500 500"><path fill="currentColor" fill-rule="evenodd"
+        d="M250 76C134 76 40 121 40 176c0 48 71 88 165 98v146h90V274c94-10 165-50 165-98 0-55-94-100-210-100z
+           m0 42c-74 0-133 26-133 58s59 58 133 58 133-26 133-58-59-58-133-58z"/></svg>
+    </span>
+    <span class="brand">
+      <b>ARGUS <span>INCIDENT COMMANDER</span></b>
+      <span class="sub">Evidence-backed incident intelligence</span>
+    </span>
+    <span class="integrations" id="integrations" aria-live="polite"></span>
+  </header>
+
+  <form id="form">
+    <label class="sr" for="text">What were you told?</label>
+    <input type="text" id="text" name="text" autocomplete="off"
+      value="Structure fire at 1001 Van Ness Avenue, San Francisco. Caller reports smoke from the second floor and someone may still be inside."
+      placeholder="Structure fire at 1001 Van Ness Avenue, someone may still be inside">
+    <button type="submit" class="btn" id="go">Work the incident</button>
+    <button type="button" class="btn ghost" id="fail">Try a bad address</button>
+  </form>
+  <p class="hint">Runs live against OpenStreetMap. Actions execute where credentials
+    are configured and are marked <b>rehearsed</b> where they are not.</p>
+
+  <div class="work">
+    <nav class="rail glass" id="rail" aria-label="Agent stages"></nav>
+    <main id="out"></main>
+  </div>
+
+</div>
+<script src="/app.js"></script>
+</body>
+</html>
