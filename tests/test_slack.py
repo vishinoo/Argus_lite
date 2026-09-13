@@ -148,3 +148,69 @@ def test_a_rehearsed_post_offers_no_link(monkeypatch):
     result = comms.slack_post("C123", "the brief", rehearse=True)
     assert result.rehearsed
     assert result.data.get("permalink") is None
+
+
+# ── a message nobody is in the room for ───────────────────────────────
+#
+# Reported live: "it says the message was sent, it wasn't." It was — to a
+# channel created seconds earlier that the person watching had never joined.
+# The post was real, the permalink resolved, and there was still nobody there
+# to read it, which for the person in front of the screen is the same as
+# nothing having happened.
+
+
+def test_an_existing_channel_can_be_named_instead_of_creating_one(monkeypatch):
+    # The reliable fix for a demo: post where people already are.
+    monkeypatch.setenv("ARGUS_SLACK_CHANNEL", "#ops")
+    assert comms.target_channel() == "ops"
+
+
+def test_no_configured_channel_means_one_per_incident(monkeypatch):
+    monkeypatch.delenv("ARGUS_SLACK_CHANNEL", raising=False)
+    assert comms.target_channel() is None
+
+
+def test_a_created_channel_invites_the_people_who_should_see_it(monkeypatch):
+    sent = fake_slack(monkeypatch, {
+        "conversations.create": {"ok": True, "channel": {"id": "C1"}},
+        "conversations.invite": {"ok": True},
+    })
+    monkeypatch.setenv("ARGUS_SLACK_INVITE", "U123,U456")
+    result = comms.slack_open_channel("incident-1")
+    assert result.ok
+    invite = next(s for s in sent if s["endpoint"] == "conversations.invite")
+    assert invite["body"]["users"] == "U123,U456"
+    assert invite["body"]["channel"] == "C1"
+
+
+def test_a_failed_invite_does_not_fail_the_channel(monkeypatch):
+    # The channel exists and the brief can still be posted to it.
+    fake_slack(monkeypatch, {
+        "conversations.create": {"ok": True, "channel": {"id": "C1"}},
+        "conversations.invite": {"ok": False, "error": "already_in_channel"},
+    })
+    monkeypatch.setenv("ARGUS_SLACK_INVITE", "U123")
+    assert comms.slack_open_channel("incident-1").ok
+
+
+def test_nobody_to_invite_means_no_invite_call(monkeypatch):
+    sent = fake_slack(monkeypatch, {
+        "conversations.create": {"ok": True, "channel": {"id": "C1"}},
+    })
+    monkeypatch.delenv("ARGUS_SLACK_INVITE", raising=False)
+    comms.slack_open_channel("incident-1")
+    assert not any(s["endpoint"] == "conversations.invite" for s in sent)
+
+
+def test_the_permalink_uses_the_id_slack_resolved_not_the_name(monkeypatch):
+    # chat.postMessage accepts "#ops"; chat.getPermalink does not, and answers
+    # channel_not_found. The post response carries the resolved id, so a brief
+    # sent to a named channel still comes back with a link.
+    sent = fake_slack(monkeypatch, {
+        "chat.postMessage": {"ok": True, "ts": "1727000000.0001", "channel": "C999"},
+        "chat.getPermalink": {"ok": True, "permalink": "https://x.slack.com/p1"},
+    })
+    result = comms.slack_post("all-noctus", "the brief")
+    ask = next(s for s in sent if s["endpoint"] == "chat.getPermalink")
+    assert ask["body"]["channel"] == "C999"
+    assert result.data["permalink"] == "https://x.slack.com/p1"

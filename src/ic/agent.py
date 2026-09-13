@@ -177,11 +177,26 @@ class IncidentCommander:
             incident, brief.priority.value, brief.headline, picture, summary,
         )
 
-        opened = t.run(
-            "slack.create_channel",
-            lambda: comms.slack_open_channel(name, rehearse=not self._deliver),
-            name=name,
-        )
+        # Post where people already are, when a channel has been named.
+        # `chat:write.public` lets the bot post to a public channel without
+        # joining it, so no channel needs creating at all.
+        configured = comms.target_channel()
+        if configured and self._deliver:
+            opened = t.run(
+                "slack.use_channel",
+                lambda: comms.ToolResult(
+                    True, f"#{configured}",
+                    data={"channel": configured, "id": configured},
+                    sources=(comms.Source("Slack", "https://slack.com"),),
+                ),
+                name=configured,
+            )
+        else:
+            opened = t.run(
+                "slack.create_channel",
+                lambda: comms.slack_open_channel(name, rehearse=not self._deliver),
+                name=name,
+            )
         if opened.ok:
             # chat.postMessage resolves ids, not names. Rehearsal has no id, so
             # it falls back to the name it wrote to disk.

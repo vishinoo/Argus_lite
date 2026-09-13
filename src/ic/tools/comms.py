@@ -29,7 +29,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import smtplib
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -61,6 +60,25 @@ def channel_name(incident_id: str, address: str) -> str:
 # ------------------------------------------------------------------ slack
 
 
+def target_channel() -> str | None:
+    """An existing channel to post into, instead of opening one per incident.
+
+    A fresh channel is correct for real operations and wrong for a demo: the
+    bot creates it, posts, and the person watching was never a member, so a
+    delivered message looks like nothing happened. Naming a channel people are
+    already in makes the post land where they are looking.
+    """
+    name = (os.environ.get("ARGUS_SLACK_CHANNEL") or "").strip()
+    return name.lstrip("#") or None
+
+
+def _invite_list() -> str:
+    return ",".join(
+        u.strip() for u in (os.environ.get("ARGUS_SLACK_INVITE") or "").split(",")
+        if u.strip()
+    )
+
+
 def slack_open_channel(name: str, rehearse: bool = False) -> ToolResult:
     token = None if rehearse else os.environ.get("SLACK_BOT_TOKEN")
     if not token:
@@ -89,6 +107,17 @@ def slack_open_channel(name: str, rehearse: bool = False) -> ToolResult:
                           error=str(payload.get("error")))
 
     cid = payload["channel"]["id"]
+
+    # Put somebody in the room. A channel created seconds ago has exactly one
+    # member — the bot — and a brief posted to an empty room is indistinguishable
+    # from one never sent.
+    invited = _invite_list()
+    if invited:
+        try:
+            _slack("conversations.invite", token, {"channel": cid, "users": invited})
+        except Exception:  # noqa: BLE001 - the channel exists either way
+            pass
+
     return ToolResult(True, f"#{name} created", data={"channel": name, "id": cid},
                       sources=(Source("Slack", f"slack://channel/{cid}"),))
 
@@ -141,11 +170,14 @@ def slack_post(channel: str, text: str, rehearse: bool = False) -> ToolResult:
     # Where it landed, in a form a human can open. "posted to #C0C1C6YDTDH" is
     # true and useless: nobody watching can act on a channel id, and a post
     # nobody can find is indistinguishable from one that never happened.
-    permalink = _permalink(token, channel, payload.get("ts"))
+    # postMessage accepts "#ops"; getPermalink does not. The response carries
+    # the id Slack resolved, which is the one that works.
+    resolved = payload.get("channel") or channel
+    permalink = _permalink(token, resolved, payload.get("ts"))
     where = permalink or f"#{channel}"
     return ToolResult(
         True, f"brief posted to {where}",
-        data={"channel": channel, "ts": payload.get("ts"), "permalink": permalink},
+        data={"channel": resolved, "ts": payload.get("ts"), "permalink": permalink},
         sources=(Source("Slack", permalink or "https://slack.com"),),
     )
 
