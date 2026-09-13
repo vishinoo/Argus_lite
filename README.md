@@ -46,8 +46,6 @@ Argus can turn the resulting incident picture into a responder-facing brief and 
 
 ---
 
-[**System and reliability brief**](BRIEF.md) · [Demo script](DEMO.md)
-
 ## It has a job, not a prompt
 
 Argus is not told which tools to call. It is given an incident and a schema of what must be determined for that kind of incident, and it works until the schema is satisfied or nothing more can help.
