@@ -46,6 +46,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        # Never let a browser hold on to app.js. Editing the console and
+        # reloading to find the old build still running wastes the time you
+        # least have, and on demo day it looks like the fix did not work.
+        self.send_header("Cache-Control", "no-store, must-revalidate")
         self.end_headers()
         self.wfile.write(body)
 
