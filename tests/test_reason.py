@@ -219,3 +219,33 @@ def test_an_unspecified_building_tag_is_not_reported_as_a_finding():
     building = next(a for a in picture.situation if a.field == "building")
     assert "structure type: yes" not in (building.value or "")
     assert "13" in (building.value or "")
+
+
+# ── neither hazard path may claim the site is safe ────────────────────
+#
+# Two branches produce the hazards row: one when the scan returns only
+# exposures, one when it returns nothing at all. Only the first got corrected
+# when the wording was fixed, so the empty-scan case went on reading as
+# "no hazards" — which is a claim this system cannot make. It searched a map of
+# the surroundings; it knows nothing about what is inside the building.
+
+@pytest.mark.parametrize("hazards_result", [
+    "empty_list",     # scan ran, found nothing at all
+    "exposures_only",  # scan ran, found only things that are not hazards
+])
+def test_no_hazard_path_claims_the_site_is_free_of_hazards(hazards_result):
+    from ic.cases import _evidence, _hazards, _exposures
+    from ic.reason import build_picture
+
+    over = ({"hazards": _hazards(), "exposures": _exposures()}
+            if hazards_result == "empty_list"
+            else {"hazards": _hazards(),
+                  "exposures": _exposures(("A School", "school", 200.0, 0.0, 0.002))})
+    picture = build_picture(
+        Incident("IC-H", "1001 Van Ness Avenue", "structure fire"),
+        _evidence(**over))
+
+    row = next(a for a in picture.threats if "hazard" in a.field)
+    text = f"{row.value} {row.evidence}".lower()
+    assert "does not establish" in text, (
+        f"the {hazards_result} path reads as an all-clear: {row.value!r}")

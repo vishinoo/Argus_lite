@@ -120,3 +120,30 @@ def test_a_summary_always_says_where_it_came_from():
     result = summarise(picture(), "structure fire")
     assert result.source in {"model", "template"}
     assert result.label
+
+
+# ── the check must not reject faithful prose ──────────────────────────
+#
+# Found live against Gemini. The model wrote "a 13-storey social facility" —
+# a correct rendering of `storeys: 13` — and the check rejected it, because the
+# tokenizer treated "13-storey" as one indivisible token absent from the
+# source. A grounding check that rejects accurate output is not cautious, it is
+# broken: it makes the model useless and teaches you to ignore the check.
+
+
+@pytest.mark.parametrize("text", [
+    "A structure fire is reported at a 13-storey social facility.",
+    "The 13-storey building is a social-facility occupancy.",
+    "Crews face a thirteen-storey structure.",   # spelled out, no number claim
+    "SFFD Station 3 is 0.3 km away.",
+])
+def test_faithful_renderings_survive_the_check(text):
+    ok, offending = grounded(text, picture())
+    assert ok, f"rejected faithful prose: {offending}"
+
+
+def test_splitting_hyphens_does_not_let_a_fabrication_through():
+    # The fix must not become a hole: a hyphen is not a way to smuggle in a
+    # number nobody supplied.
+    ok, offending = grounded("A 40-storey tower is involved.", picture())
+    assert not ok and "40" in offending

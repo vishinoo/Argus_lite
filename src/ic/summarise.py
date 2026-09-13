@@ -38,7 +38,7 @@ from pathlib import Path
 from ic.schema import Picture, Status
 
 MODEL = "claude-opus-5"
-MAX_TOKENS = 400
+MAX_TOKENS = 700
 
 # Gemini, as a second provider behind the identical grounding check. The point
 # is not redundancy: it is that the check does not know which model wrote the
@@ -151,7 +151,14 @@ def _gemini_summary(prompt: str, api_key: str) -> str:
     body = json.dumps({
         "systemInstruction": {"parts": [{"text": SYSTEM}]},
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {"maxOutputTokens": MAX_TOKENS, "temperature": 0.2},
+        "generationConfig": {
+            "maxOutputTokens": MAX_TOKENS,
+            "temperature": 0.2,
+            # Gemini 2.5 models think by default and those tokens come out of
+            # maxOutputTokens, so the budget was being spent before the visible
+            # sentence finished. Restating a short table needs no reasoning.
+            "thinkingConfig": {"thinkingBudget": 0},
+        },
     }).encode()
     request = urllib.request.Request(
         url, data=body, headers={"Content-Type": "application/json"})
@@ -161,7 +168,12 @@ def _gemini_summary(prompt: str, api_key: str) -> str:
     candidates = payload.get("candidates") or []
     if not candidates:
         return ""
-    parts = (candidates[0].get("content") or {}).get("parts") or []
+    candidate = candidates[0]
+    if candidate.get("finishReason") == "MAX_TOKENS":
+        # Half a sentence presented as a summary is worse than the
+        # deterministic one, which at least finishes.
+        raise RuntimeError("response truncated at the token limit")
+    parts = (candidate.get("content") or {}).get("parts") or []
     return "".join(p.get("text", "") for p in parts).strip()
 
 
@@ -224,14 +236,24 @@ def grounded(text: str, picture: Picture) -> tuple[bool, list[str]]:
 
     offending = [n for n in _numbers(text) if n not in source_numbers]
 
-    for token in _tokens(text):
+    def acceptable(token: str) -> bool:
         if token in _STOPWORDS or token in source_tokens:
-            continue
-        # Capitalised-in-source words are names; an unknown one is a claim.
+            return True
+        # Ordinary lowercase prose is connective tissue, not a claim.
         if re.fullmatch(r"[a-z]+", token) and len(token) > 2:
-            continue  # ordinary lowercase prose
-        offending.append(token)
+            return True
+        # A hyphenated compound is acceptable when all its parts are.
+        # "13-storey" is a faithful rendering of `storeys: 13`; rejecting it
+        # rejects correct prose, and a check that rejects correct prose is one
+        # people learn to ignore. This cannot smuggle a fabrication through,
+        # because numbers are checked against the source separately above —
+        # "40-storey" still fails on the 40.
+        if "-" in token:
+            parts = [p for p in token.split("-") if p]
+            return bool(parts) and all(acceptable(p) for p in parts)
+        return False
 
+    offending.extend(t for t in _tokens(text) if not acceptable(t))
     return (not offending), offending
 
 

@@ -155,3 +155,41 @@ def test_a_gemini_failure_falls_back_rather_than_crashing(monkeypatch, tmp_path)
     monkeypatch.setattr(S.urllib.request, "urlopen", boom)
     result = S.summarise(picture(), "structure fire")
     assert result.source == "template" and result.rejected
+
+
+# ── truncation is a rejection, not a summary ──────────────────────────
+#
+# Found live. gemini-2.5-flash is a thinking model and its thinking tokens
+# count against maxOutputTokens, so the budget was spent before the visible
+# text finished and the brief got "...social facility at". Half a sentence
+# presented as a summary is worse than the deterministic one.
+
+
+def test_thinking_is_turned_off_for_a_restatement(monkeypatch, tmp_path):
+    monkeypatch.setattr(S, "GEMINI_MODEL_CACHE", tmp_path / "m")
+    monkeypatch.setenv("GEMINI_MODEL", "models/x")
+    sent = []
+
+    def urlopen(req, timeout=None):
+        sent.append(json.loads(req.data.decode()))
+        return FakeResponse(json.dumps(reply("ok")).encode())
+
+    monkeypatch.setattr(S.urllib.request, "urlopen", urlopen)
+    S._gemini_summary("prompt", "key")
+    config = sent[0]["generationConfig"]
+    assert config.get("thinkingConfig", {}).get("thinkingBudget") == 0
+
+
+def test_a_truncated_response_is_rejected(monkeypatch, tmp_path):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "key")
+    monkeypatch.setenv("GEMINI_MODEL", "models/x")
+    monkeypatch.setattr(S, "GEMINI_MODEL_CACHE", tmp_path / "m")
+
+    cut = {"candidates": [{"content": {"parts": [{"text": "A fire is reported at"}]},
+                           "finishReason": "MAX_TOKENS"}]}
+    monkeypatch.setattr(S.urllib.request, "urlopen",
+                        lambda req, timeout=None: FakeResponse(json.dumps(cut).encode()))
+    result = S.summarise(picture(), "structure fire")
+    assert result.source == "template"
+    assert "truncat" in (result.rejected or "").lower()
