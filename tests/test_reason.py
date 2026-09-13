@@ -249,3 +249,98 @@ def test_no_hazard_path_claims_the_site_is_free_of_hazards(hazards_result):
     text = f"{row.value} {row.evidence}".lower()
     assert "does not establish" in text, (
         f"the {hazards_result} path reads as an all-clear: {row.value!r}")
+
+
+# ── a medical call gets medical advice ────────────────────────────────
+
+
+def _medical_picture(description, storeys):
+    from ic.reason import build_picture, Incident
+    return build_picture(
+        Incident("IC-1", "1 Market Street", description),
+        evidence(building=building(("storeys", str(storeys)))),
+    )
+
+
+def test_a_medical_call_carries_ems_recommendations():
+    p = _medical_picture("cardiac arrest, CPR in progress by bystander", 13)
+    got = {a.field for a in p.all}
+    assert "ems_access" in got
+
+
+def test_a_fire_call_carries_no_ems_recommendations():
+    from ic.reason import build_picture, Incident
+    p = build_picture(
+        Incident("IC-1", "1 Market Street", "structure fire, smoke showing"),
+        evidence(building=building(("storeys", "13"))),
+    )
+    assert "ems_access" not in {a.field for a in p.all}
+
+
+# ── a recommendation has to belong to the discipline ──────────────────
+
+
+def test_a_shooting_does_not_get_a_ladder_company():
+    from ic.reason import build_picture, Incident
+    # A ladder company is a fire resource. Recommending one on a report of
+    # shots fired is the kind of thing a judge with any operational knowledge
+    # spots instantly, and it came from gating the aerial inference on the
+    # building's height alone rather than on what the incident is.
+    p = build_picture(
+        Incident("IC-1", "350 5th Avenue", "Shots reported, one person down"),
+        evidence(building=building(("storeys", "102"))),
+    )
+    access = {a.field: a for a in p.all}.get("access")
+    assert access is None or "ladder" not in (access.value or "").lower()
+
+
+def test_a_structure_fire_still_gets_a_ladder_company():
+    from ic.reason import build_picture, Incident
+    p = build_picture(
+        Incident("IC-1", "1001 Van Ness", "structure fire, smoke showing"),
+        evidence(building=building(("storeys", "13"))),
+    )
+    assert "ladder" in {a.field: a for a in p.all}["access"].value.lower()
+
+
+def test_a_tag_that_only_says_yes_is_not_a_fact():
+    from ic.reason import build_picture, Incident
+    # OpenStreetMap answers `office=yes` for a great many buildings, which the
+    # field mapper turned into "occupancy: yes". That reads as an established
+    # fact and carries no information at all.
+    p = build_picture(
+        Incident("IC-1", "350 5th Avenue", "structure fire"),
+        evidence(building=building(("storeys", "102"), ("occupancy", "yes"))),
+    )
+    described = {a.field: a for a in p.all}["building"].value
+    assert "occupancy: yes" not in described
+
+
+def test_a_shooting_gets_no_hydrant_and_no_responding_engine():
+    from ic.reason import build_picture, Incident
+    # Water supply and which engine arrives from which side are fire answers.
+    # On a report of shots fired they are noise in a list read under pressure.
+    p = build_picture(
+        Incident("IC-1", "350 5th Avenue", "Shots reported, one person down"),
+        evidence(),
+    )
+    got = {a.field for a in p.all}
+    assert "water supply" not in got
+    assert "responding" not in got
+
+
+def test_a_structure_fire_still_gets_both():
+    from ic.reason import build_picture, Incident
+    p = build_picture(
+        Incident("IC-1", "1001 Van Ness", "structure fire, smoke showing"), evidence())
+    got = {a.field for a in p.all}
+    assert "responding" in got
+
+
+def test_a_shooting_near_a_school_raises_containment():
+    from ic.reason import build_picture, Incident
+    p = build_picture(
+        Incident("IC-1", "350 5th Avenue", "Shots reported, one person down"),
+        evidence(exposures=places(("Sacred Heart School", "school", 207.0))),
+    )
+    assert "containment" in {a.field for a in p.all}
