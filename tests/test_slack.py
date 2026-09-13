@@ -9,6 +9,7 @@ and was being handed a name.
 from __future__ import annotations
 
 import json
+import urllib.parse
 from io import BytesIO
 
 import pytest
@@ -25,12 +26,25 @@ class FakeResponse(BytesIO):
 
 
 def fake_slack(monkeypatch, replies):
-    """Answer each Slack endpoint from `replies`, recording what was sent."""
+    """Answer each Slack endpoint from `replies`, recording what was sent.
+
+    Records the HTTP method and reads arguments from wherever they actually
+    are. An earlier version assumed every call was a JSON POST and decoded
+    `req.data` blindly, so it happily passed a `chat.getPermalink` that Slack
+    rejects with `invalid_arguments` — that one is a GET, and the bug survived
+    to a live run because the fake did not care.
+    """
     sent: list[dict] = []
 
     def urlopen(req, timeout=None):
-        endpoint = req.full_url.rsplit("/", 1)[-1]
-        sent.append({"endpoint": endpoint, "body": json.loads(req.data.decode())})
+        url, _, query = req.full_url.partition("?")
+        endpoint = url.rsplit("/", 1)[-1]
+        if req.data:
+            body = json.loads(req.data.decode())
+        else:
+            body = {k: v[0] for k, v in urllib.parse.parse_qs(query).items()}
+        sent.append({"endpoint": endpoint, "body": body,
+                     "method": req.get_method()})
         return FakeResponse(json.dumps(replies[endpoint]).encode())
 
     monkeypatch.setattr(comms.urllib.request, "urlopen", urlopen)
@@ -76,3 +90,61 @@ def test_a_genuine_slack_error_is_still_reported(monkeypatch):
     })
     result = comms.slack_open_channel("inc")
     assert not result.ok and "invalid_auth" in (result.error or "")
+
+
+# ── where the message actually went ───────────────────────────────────
+#
+# The run said "brief posted to #C0C1C6YDTDH" and that was the whole story.
+# Nobody watching a demo can do anything with a channel id, and the person who
+# built it could not say where to look either. A post that cannot be found is
+# indistinguishable from one that never happened.
+
+
+def test_a_post_returns_a_link_a_human_can_open(monkeypatch):
+    sent = fake_slack(monkeypatch, {
+        "chat.postMessage": {"ok": True, "ts": "1727villain.0001",
+                             "channel": "C123"},
+        "chat.getPermalink": {
+            "ok": True,
+            "permalink": "https://argus.slack.com/archives/C123/p1727000000001",
+        },
+    })
+    result = comms.slack_post("C123", "the brief")
+    assert result.ok
+    assert result.data["permalink"].startswith("https://")
+    assert any(s["endpoint"] == "chat.getPermalink" for s in sent)
+
+
+def test_the_permalink_request_uses_the_timestamp_slack_returned(monkeypatch):
+    sent = fake_slack(monkeypatch, {
+        "chat.postMessage": {"ok": True, "ts": "1727000000.0001", "channel": "C123"},
+        "chat.getPermalink": {"ok": True, "permalink": "https://x.slack.com/p1"},
+    })
+    comms.slack_post("C123", "the brief")
+    ask = next(s for s in sent if s["endpoint"] == "chat.getPermalink")
+    assert ask["body"]["message_ts"] == "1727000000.0001"
+    assert ask["body"]["channel"] == "C123"
+    # Slack serves this one over GET. Posting a JSON body to it returns
+    # `invalid_arguments`, which is what happened live.
+    assert ask["method"] == "GET"
+
+
+def test_a_post_still_succeeds_when_the_permalink_lookup_fails(monkeypatch):
+    # The message was delivered. Failing the whole action because the
+    # convenience link could not be fetched would report a false negative about
+    # something that actually happened.
+    fake_slack(monkeypatch, {
+        "chat.postMessage": {"ok": True, "ts": "1727000000.0001", "channel": "C123"},
+        "chat.getPermalink": {"ok": False, "error": "message_not_found"},
+    })
+    result = comms.slack_post("C123", "the brief")
+    assert result.ok
+    assert result.data.get("permalink") is None
+
+
+def test_a_rehearsed_post_offers_no_link(monkeypatch):
+    # Nothing was sent anywhere, so there is nowhere to point.
+    monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
+    result = comms.slack_post("C123", "the brief", rehearse=True)
+    assert result.rehearsed
+    assert result.data.get("permalink") is None
