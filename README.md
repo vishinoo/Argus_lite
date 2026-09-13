@@ -30,10 +30,6 @@ Argus receives the incident, identifies what needs to be established, investigat
 
 The console shows the incident as it develops, including sourced findings, unknowns, confidence, tool execution, and operational considerations.
 
-#### Evidence & Investigation
-
-<img width="377" height="677" alt="Screenshot 2026-09-13 at 5 07 22 PM" src="https://github.com/user-attachments/assets/ccfc447c-0e06-496a-8406-a8e00412a7f2" />
-
 Every external claim is tied to the source that established it. Argus distinguishes between **REPORTED**, **VERIFIED**, **INFERRED**, **CONTRADICTED**, and **UNKNOWN** information.
 
 #### Response Team Coordination
