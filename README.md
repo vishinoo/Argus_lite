@@ -240,46 +240,6 @@ UNVERIFIED — HUMAN CONFIRMATION REQUIRED
 
 This is the one place the agent overrules its operator, and it is the right place: the channel, the brief and the people notified would all be about somewhere that may not exist.
 
-## Reliability
-
-```bash
-ic eval
-```
-
-```text
-  100 synthetic incidents · scripted evidence · 0.07s
-
-    workflows completed                     100/100
-    incident classification                 100.0%
-    location extraction                     100.0%
-    required fields extracted               100.0%
-    schema completeness                      97.2%
-    behavioural checks passed               234/234
-    structured extraction accuracy          100.0%
-    tool-call success rate                   99.7%
-    external claims source-attributed       100.0%
-    unsupported claims presented as fact       0
-    advisories presented as confirmed          0
-    refusals correctly escalated             2/2
-    actions completed                    490/490
-```
-
-`required fields extracted` reached 100% by fixing a bug, not by lowering the bar. The eval kept its own copy of the schema's required fields; the copy drifted, and it was grading against `hazards` while the picture had been renamed to emit `external hazards`. The gap could never close, so the planner held it open and completeness was understated on every fire and gas call — 36 of 36. The eval now derives its expectations from the schema, which is why there is one table instead of two.
-
-`schema completeness` is 97.2% and stays there. Some incidents genuinely have fields no public source can fill, and a scorecard reading 100% across the board is measuring how flattering its metrics are.
-
-A hundred incidents across fire, medical, gas, armed, missing-person, bad-address and evidence-quality categories. Twenty are hand-written and carry the judgement calls — not "handles gas leaks well" but "raises utility isolation *and* records that the operator is unconfirmed." Eighty are generated to measure classification and extraction against phrasing variation rather than against one sentence per category.
-
-**The suite found three real bugs in us.** `shoot\w*` never matched *"Shots reported"*, so an armed incident reached the workflow unclassified. `fume\b` never matched *"Fumes"*. Classification was 90% before those fixes and the number in this table is the one measured after them.
-
-**We also test the tests.** A suite that always returns 100% measures nothing, so every check is run against a deliberately broken result and must reject it. That test has already caught one check of ours that could never fail (`lambda r: True`) and one naming heuristic that silently excused another.
-
-Evidence is scripted so the numbers are deterministic. A reliability figure that moves because a volunteer-run tile server was busy measures the weather.
-
-## What it costs, and what that buys
-
-The same discipline the agent applies to its output applies to its business case: measured, published and modelled numbers are kept apart, and the arithmetic is shown rather than summarised so you can check it.
-
 ### Measured — in this repository
 
 ```text
