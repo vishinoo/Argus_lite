@@ -6,15 +6,6 @@
  * the speed it happened, capped so a slow lookup does not stall a demo.
  */
 
-const STAGES = [
-  ["observe", "Incident received"],
-  ["investigate", "Querying external sources"],
-  ["reason", "Evaluating evidence"],
-  ["decide", "Determining actions"],
-  ["act", "Notifying responders"],
-  ["document", "Evidence chain recorded"],
-];
-
 /* A glyph per state. The word is kept as the title attribute and in the legend,
    so nothing depends on the glyph alone — colour-blind readers and bad
    projectors both need the word somewhere. */
@@ -61,15 +52,39 @@ const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g,
   (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-function drawRail(states = {}) {
-  rail.innerHTML = `<div class="eyebrow">Agent loop</div>` + STAGES.map(([key, note]) => `
-    <div class="stage" data-state="${states[key] || "idle"}">
-      <span class="dot"></span>
-      <span>
-        <span class="name">${key}</span>
-        <span class="note">${states[key] === "blocked" ? "halted" : note}</span>
+/* The left column used to replay the six stages of the agent loop, which is a
+   diagram of our control flow — interesting to us, and nothing a dispatcher
+   needs while an incident is open. It now carries the two things they would
+   actually act on: how to come at it, and what nobody knows yet. */
+function drawPlan(picture, status) {
+  const approach = (picture && picture.approach) || [];
+  const open = (picture && picture.open_questions) || [];
+
+  const row = (a) => `
+    <div class="planrow${movedSince(a) ? " moved" : ""}">
+      <span class="state" data-s="${esc(a.status)}" title="${esc(a.status)}"
+            aria-label="${esc(a.status)}">${GLYPH[a.status] || "\u00b7"}</span>
+      <span class="pv">
+        <b>${esc(a.field)}</b>
+        ${a.value ? esc(String(a.value).replace(/^RECOMMENDATION:\s*/i, "")) : "—"}
+        <span class="cite">${esc(a.source || a.evidence)}</span>
       </span>
-    </div>`).join("");
+    </div>`;
+
+  rail.innerHTML = `
+    <section class="plan glass">
+      <div class="eyebrow">Approach</div>
+      ${approach.length ? approach.map(row).join("")
+                        : `<p class="waiting">${esc(status || "—")}</p>`}
+    </section>
+    <section class="plan glass">
+      <div class="eyebrow">Open questions</div>
+      ${open.length
+        ? `<div class="opens">${open.map((a) =>
+            `<span class="open">${esc(a.field)}</span>`).join("")}</div>
+           <p class="waiting">No source can settle these before arrival.</p>`
+        : `<p class="waiting">—</p>`}
+    </section>`;
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, reduced ? 0 : ms));
@@ -82,8 +97,8 @@ function startClock() {
   const t0 = performance.now();
   stopClock();
   ticker = setInterval(() => {
-    const el = rail.querySelector('.stage[data-state="active"] .note');
-    if (el) el.textContent = `${((performance.now() - t0) / 1000).toFixed(1)}s`;
+    const el = rail.querySelector(".waiting");
+    if (el) el.textContent = `working… ${((performance.now() - t0) / 1000).toFixed(1)}s`;
   }, 100);
 }
 function stopClock() { clearInterval(ticker); ticker = null; }
@@ -97,8 +112,7 @@ async function run(text) {
   setBusy(true);
   out.innerHTML = "";
   document.querySelectorAll(".aside").forEach((n) => n.remove());
-  const states = { observe: "done", investigate: "active" };
-  drawRail(states);
+  drawPlan(null, "working…");
 
   let data;
   startClock();
@@ -115,13 +129,13 @@ async function run(text) {
     stopClock();
     out.innerHTML = `<div class="refusal glass"><h2>Could not run</h2>
       <p>${esc(err.message)}</p></div>`;
-    drawRail({ observe: "done", investigate: "blocked" });
+    drawPlan(null, "halted");
     setBusy(false);
     return;
   }
 
   incidentId = data.incident.id || incidentId;
-  await render(data, states);
+  await render(data);
   remember(data.brief.picture);
   $("followup").hidden = false;
   setBusy(false);
@@ -147,11 +161,11 @@ function movedSince(a) {
   return !previous.has(a.field) || previous.get(a.field) !== now;
 }
 
-async function render(data, states) {
+async function render(data) {
   const lookups = data.transcript.calls.filter(
-    (c) => !["slack", "gmail", "calendar", "ntfy"].includes(c.tool.split(".")[0]));
+    (c) => !["slack", "ntfy"].includes(c.tool.split(".")[0]));
   const actions = data.transcript.calls.filter(
-    (c) => ["slack", "gmail", "calendar", "ntfy"].includes(c.tool.split(".")[0]));
+    (c) => ["slack", "ntfy"].includes(c.tool.split(".")[0]));
 
   // ---- evidence chain, revealed at the pace it actually ran
   const aside = document.createElement("div");
@@ -185,19 +199,13 @@ async function render(data, states) {
   chainBox.insertAdjacentHTML("beforeend",
     `<div class="node"><span class="mark">●</span><span class="what">Argus synthesis</span></div>`);
 
-  states.investigate = "done";
-  states.reason = "active";
-  drawRail(states);
   await sleep(260);
 
   // ---- the picture
   const b = data.brief;
   if (b.picture) out.appendChild(picturePanel(b, data));
+  drawPlan(b.picture, data.refused ? "halted" : "—");
   if (b.picture && (b.picture.ledger || []).length) aside.appendChild(ledgerPanel(b.picture));
-
-  states.reason = "done";
-  states.decide = data.refused ? "blocked" : "done";
-  drawRail(states);
   await sleep(200);
 
   if (data.refused) {
@@ -206,17 +214,12 @@ async function render(data, states) {
         <h2>Workflow not executed</h2>
         <p>${esc(data.refused)}</p>
       </div>`);
-    states.act = "blocked";
   } else if (actions.length) {
     aside.appendChild(actionsPanel(actions));
-    states.act = "done";
   }
-  drawRail(states);
   await sleep(200);
 
   aside.appendChild(metricsPanel(data));
-  states.document = "done";
-  drawRail(states);
 }
 
 const SECTIONS = [
@@ -225,8 +228,6 @@ const SECTIONS = [
   ["threats", "Threats"],
   ["exposures", "Exposures"],
   ["resources", "Resources"],
-  ["approach", "Approach"],
-  ["open_questions", "Open questions"],
 ];
 
 function picturePanel(brief, data) {
@@ -291,6 +292,14 @@ function ledgerPanel(picture) {
 }
 
 function actionsPanel(actions) {
+  // Where it went, as something you can open. "posted to #C0C1C6YDTDH" is true
+  // and useless on a projector.
+  const link = (a) => {
+    const url = a.link;
+    return url
+      ? `<a class="went" href="${esc(url)}" target="_blank" rel="noopener">open it ↗</a>`
+      : "";
+  };
   const panel = document.createElement("section");
   panel.className = "panel glass reveal";
   panel.innerHTML = `<h2>Actions</h2><div class="chain">${actions.map((a) => `
@@ -298,7 +307,7 @@ function actionsPanel(actions) {
       <span class="what">${esc(a.tool)}
         ${a.rehearsed ? '<span class="sought">rehearsed</span>' : ""}</span></div>
     <div class="node"><span class="rule">↓</span>
-      <span class="detail">${esc(a.summary)}</span></div>`).join("")}</div>`;
+      <span class="detail">${esc(a.summary)} ${link(a)}</span></div>`).join("")}</div>`;
   return panel;
 }
 
@@ -376,7 +385,7 @@ $("templates").addEventListener("click", (e) => {
 $("text").value = TEMPLATES.fire.text;
 $("more").placeholder = TEMPLATES.fire.then;
 
-drawRail();
+drawPlan(null, "—");
 integrations();
 
 /* A run is addressable: ?q=<incident>&auto=1 opens the console and works it.

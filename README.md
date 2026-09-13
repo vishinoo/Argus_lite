@@ -46,8 +46,9 @@ opens and works an incident directly, so a demo can start the same way twice.
   ✓ maps.geocode             322ms  Coterie, 1001, Van Ness Avenue, Western Addition…
   ✓ osm.survey                 1ms  storeys: 13; occupancy: social_facility; name: Coterie
   ✓ web.public_search        542ms  no public article specific to this address
-  ✓ slack.create_channel       2ms  #incident-ic-1847-1001-van-ness-avenue    rehearsed
-  ✓ gmail.send                 0ms  brief prepared for command@example.gov    rehearsed
+  ✓ ntfy.alert               412ms  delivered to ntfy.sh/argus-vIfi2FIYKqLvZzgo
+  ✓ slack.create_channel     286ms  #incident-ic-1847-1001-van-ness-avenue
+  ✓ slack.post_message       310ms  brief posted to noctus-talk.slack.com/archives/…
 
 HIGH PRIORITY — FIRE
 KNOWN       storeys: 13 · occupancy: social_facility        [recorded] OpenStreetMap
@@ -99,6 +100,50 @@ eventually get someone hurt.
 `VERIFIED` cannot be constructed without a source — it raises. When we wrote the
 test that tries to build an unattributed claim, we could not do it without
 deliberately bypassing the constructor.
+
+## Where the message actually went
+
+The run used to say `brief posted to #C0C1C6YDTDH` and stop there. That is true
+and useless: nobody watching can act on a channel id, and a message nobody can
+find is indistinguishable from one that was never sent. Every delivered action
+now comes back with a link you can open.
+
+```
+  ✓ ntfy.alert               delivered to ntfy.sh/argus-vIfi2FIYKqLvZzgo
+  ✓ slack.post_message       brief posted to
+                             noctus-talk.slack.com/archives/C0C1C6YDTDH/p1789337416854919
+```
+
+What lands in the channel is the brief, not a headline — laid out for a phone
+rather than a terminal, with the caller's own words quoted at the top and the
+three categories kept apart:
+
+```
+  :rotating_light: HIGH PRIORITY — FIRE
+  1001 Van Ness Avenue, San Francisco  ·  IC-1847
+
+  A structure fire is reported at a 13-storey social facility.
+
+  > Structure fire at 1001 Van Ness Avenue. Caller reports smoke from the
+  > second floor and someone may still be inside.
+
+  ESTABLISHED
+  • building — storeys: 13
+     OpenStreetMap building record
+  • fire_station — San Francisco Fire Station 3 — 0.3 km, est. 2:52
+     OpenStreetMap / Overpass
+  ...
+  ADVISORY — worked out, or reported by the caller
+  • access — consider a ladder company for aerial access
+     13 storeys exceeds ground-ladder reach
+  ...
+  NOT ESTABLISHED — no source can settle these before arrival
+  • persons_trapped, severity, hazmat, current_access
+```
+
+Every established line carries the record it came from. A claim without its
+source is the one thing this system will not produce, and it does not become
+one on the way into Slack.
 
 ## A call is not one sentence
 
@@ -355,9 +400,10 @@ $7,000 above is a model-spend number, not a total cost of ownership.
 
 ## Honest limits
 
-- **Actions rehearse by default.** Without credentials, Slack/mail/calendar
-  compose the real message, write it to `out/`, and report `rehearsed`. Nothing
-  is faked as delivered. The calendar writes a real `.ics` either way.
+- **Actions rehearse without credentials.** Slack composes the real message,
+  writes it to `out/`, and reports `rehearsed`. Nothing is faked as delivered,
+  and `delivered` is counted separately from `ok`. The responder alert needs no
+  credentials and is delivered for real either way.
 - **OpenStreetMap is incomplete**, unevenly so. An empty hazard scan means
   nothing was *mapped*, which is not the same as nothing being there — and the
   brief says exactly that.
@@ -378,8 +424,7 @@ pytest -q          # 278 tests
 No API keys required — every fact-gathering source is keyless, and the brief
 is complete without a model.
 
-Set `SLACK_BOT_TOKEN` / `SMTP_USER` + `SMTP_PASS` to deliver for real instead
-of rehearsing. Set `ANTHROPIC_API_KEY` or `GEMINI_API_KEY` and a model writes
+Set `SLACK_BOT_TOKEN` to deliver for real instead of rehearsing. Set `ANTHROPIC_API_KEY` or `GEMINI_API_KEY` and a model writes
 the two-sentence summary at the top of the brief, instead of the deterministic
 template.
 

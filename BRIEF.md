@@ -9,9 +9,7 @@ team.
 
 | External app | Role | Status |
 |---|---|---|
-| Slack | opens an incident channel, posts the brief | live |
-| Gmail / SMTP | sends the brief to command | live with credentials |
-| Google Calendar | writes the `.ics` for the briefing | live |
+| Slack | opens an incident channel, posts the full brief, returns a permalink | live |
 | ntfy.sh | push alert to responders' phones | live, no credentials needed |
 | OpenStreetMap Nominatim | geocoding | live |
 | OpenStreetMap Overpass | building, hazards, hydrants, stations | live |
@@ -21,11 +19,14 @@ team.
 | Gemini | writes the summary prose | live |
 
 `ic check` prints this at runtime. Nothing above needs an API key except Slack,
-Gmail and Gemini.
+and Gemini.
 
 ## How it works
 
-Six stages: observe → investigate → reason → decide → act → document.
+Six stages: observe → investigate → reason → decide → act → document. The
+console does not draw them — a diagram of our control flow is not something a
+dispatcher acts on. It shows the finalised approach and the open questions
+instead.
 
 It is **not** a pipeline. Each incident kind has a schema of fields that must
 be determined; the unfilled required fields are the agent's to-do list, and it

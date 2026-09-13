@@ -19,7 +19,8 @@ ic run "Structure fire at 1001 Van Ness Avenue, San Francisco. \
 Caller reports smoke from the second floor and someone may still be inside." \
   --id IC-1847 --execute
 ```
-Point at three things, in this order:
+The left column is the finalised approach and the open questions — the two
+things a dispatcher would act on. Point at three things, in this order:
 
 1. **The evidence chain** — "every arrow is a real tool call. The brief is
    built from evidence. The model writes the summary at the top and nothing
@@ -55,6 +56,11 @@ ic run "Fire at 999999 Unknown Avenue, San Francisco" --execute
 "It will not act on a location it cannot verify — even when told to." Point at
 the stage rail: DECIDE and ACT go red and say *halted*, and the evidence chain
 shows each lookup skipped rather than quietly not run.
+
+**3b · Where it went (10s).** Click **open it ↗** next to `slack.post_message`.
+The channel has the full brief — established facts with their sources,
+advisory items marked as advisory, and the open questions. "Every line in
+Slack names the record it came from."
 
 **4 · The evaluation (20s).**
 ```bash
