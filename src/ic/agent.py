@@ -71,6 +71,7 @@ class RunResult:
                 "id": self.incident.incident_id,
                 "address": self.incident.address,
                 "description": self.incident.description,
+                "updates": list(self.incident.updates),
             },
             "brief": self.brief.to_dict(),
             "transcript": self.transcript.to_dict(),
@@ -165,7 +166,7 @@ class IncidentCommander:
         if picture is not None:
             written = t.run(
                 "summary.write",
-                lambda: _summary_result(picture, incident.description),
+                lambda: _summary_result(picture, incident.full_text),
                 because="brief prose",
             )
             if written.ok and written.data:

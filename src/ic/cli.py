@@ -109,7 +109,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 2
 
     incident = Incident(
-        incident_id=args.id, address=address, description=args.text
+        incident_id=args.id, address=address, description=args.text,
+        updates=tuple(args.update),
     )
 
     if not args.json:
@@ -117,8 +118,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"{dim}  observe → investigate → reason → decide → act → document{reset}\n")
         print(f"  incident   {incident.incident_id}")
         print(f"  reported   \"{incident.description}\"")
+        for n, update in enumerate(incident.updates, start=1):
+            print(f"  update {n}   \"{update}\"")
         print(f"  address    {address}")
-        print(f"  classified {classify(incident.description).value}\n")
+        print(f"  classified {classify(incident.full_text).value}\n")
         print(f"{dim}  ── investigating {'─' * 46}{reset}")
 
     def show(call: ToolCall) -> None:
@@ -227,7 +230,7 @@ def _picture(result, dim, bold, reset, red, green, yellow) -> None:
 
     from ic.schema import Status
 
-    kind = classify(result.incident.description)
+    kind = classify(result.incident.full_text)
     counts = {s.value: len(picture.by_status(s)) for s in Status}
     print(f"  determined {picture.completeness(kind):.0%} of what is knowable · "
           f"{counts['VERIFIED']} verified · {counts['REPORTED']} reported · "
@@ -279,6 +282,9 @@ def main(argv: list[str] | None = None) -> int:
 
     run = sub.add_parser("run", help="work an incident end to end")
     run.add_argument("text", help="what the dispatcher was told")
+    run.add_argument("--update", action="append", default=[], metavar="TEXT",
+                     help="something the caller said after the opening line; "
+                          "repeat for each")
     run.add_argument("--address", default=None, help="override the extracted address")
     run.add_argument("--id", default="IC-001")
     run.add_argument("--execute", action="store_true",

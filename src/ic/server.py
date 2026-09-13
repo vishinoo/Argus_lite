@@ -79,6 +79,13 @@ class Handler(BaseHTTPRequestHandler):
         if not text:
             return self._json(400, {"error": "no incident text given"})
 
+        # Everything said since the opening line. The address is still taken
+        # from the first thing said: a later update saying "he's at the
+        # hospital now" must not move the incident.
+        updates = tuple(
+            u.strip() for u in (payload.get("updates") or []) if str(u).strip()
+        )
+
         address = payload.get("address") or extract_address(text)
         if not address:
             # The same refusal the CLI makes: a guessed address sends the whole
@@ -92,8 +99,9 @@ class Handler(BaseHTTPRequestHandler):
             LiveInvestigator(),
             notify_email=payload.get("notify") or "command@example.gov",
         )
+        incident_id = (payload.get("incident_id") or "").strip() or _next_id()
         result = commander.run(
-            Incident(_next_id(), address, text),
+            Incident(incident_id, address, text, updates=updates),
             execute=payload.get("execute", True),
         )
         self._json(200, result.to_dict())
