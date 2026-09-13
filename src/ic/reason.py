@@ -79,11 +79,35 @@ _CARE_OCCUPANCY = {
 
 @dataclass(frozen=True)
 class Incident:
-    """What the dispatcher typed."""
+    """What the dispatcher typed, and everything said since.
+
+    A call is not one sentence. The line stays open and information keeps
+    arriving — the smoke changes colour, somebody gets out, the building turns
+    out to be taller than the record says. Each update is another thing a
+    person on a phone said, so each stays REPORTED; what changes is that the
+    investigation and the contradiction checks now run over everything said,
+    not just the opening line.
+    """
 
     incident_id: str
     address: str
     description: str
+    updates: tuple[str, ...] = ()
+
+    @property
+    def full_text(self) -> str:
+        """Everything the caller has said, for classification and extraction.
+
+        Joined as sentences rather than with a bare space. Extraction splits on
+        punctuation, so a space let the end of one statement and the start of
+        the next fuse into a single clause — the people row came out reading
+        "smoke showing caller now says two people are inside".
+        """
+        parts = [p.strip() for p in (self.description, *self.updates) if p and p.strip()]
+        return " ".join(
+            p if p.endswith((".", "!", "?", ";")) else f"{p}."
+            for p in parts
+        ).strip()
 
 
 @dataclass(frozen=True)
@@ -106,6 +130,13 @@ def classify(description: str) -> Kind:
         if pattern.search(description or ""):
             return kind
     return Kind.UNKNOWN
+
+
+# OpenStreetMap answers `office=yes` for a great many buildings, and the field
+# mapper turned that into "occupancy: yes" — which reads as an established fact
+# and carries no information. A tag whose value is "yes" says only that the key
+# is present.
+_EMPTY_TAG_VALUES = {"yes", "true"}
 
 
 def _storeys(building: ToolResult) -> int | None:
@@ -136,7 +167,7 @@ def _occupancy(building: ToolResult) -> str | None:
 
 def synthesize(incident: Incident, evidence: Evidence) -> Brief:
     """Assemble the brief. Refuses to describe a place it could not locate."""
-    kind = classify(incident.description)
+    kind = classify(incident.full_text)
     headline = kind.value.upper() if kind is not Kind.UNKNOWN else "UNCLASSIFIED INCIDENT"
 
     # ---------------------------------------------------------- the refusal
@@ -166,6 +197,8 @@ def synthesize(incident: Incident, evidence: Evidence) -> Brief:
 
     # The caller's account is carried, and stays theirs.
     known.append(Claim.caller_said(incident.description))
+    for update in incident.updates:
+        known.append(Claim.caller_said(update))
 
     geo = evidence.geocode.data["located"]
     known.append(
@@ -193,7 +226,7 @@ def synthesize(incident: Incident, evidence: Evidence) -> Brief:
         )
 
     storeys = _storeys(evidence.building)
-    claimed = _claimed_storeys(incident.description)
+    claimed = _claimed_storeys(incident.full_text)
     if storeys and claimed and storeys != claimed:
         conflicts.append(
             f"caller described {claimed} storeys; the building record says {storeys} — "
@@ -366,7 +399,7 @@ def build_picture(incident: Incident, evidence: Evidence,
     it came from, so the chain runs source → raw evidence → fact → claim and
     can be walked backwards by anyone who doubts it.
     """
-    kind = classify(incident.description)
+    kind = classify(incident.full_text)
     ledger = ledger if ledger is not None else Ledger()
     situation: list[Assessment] = []
     people: list[Assessment] = []
@@ -378,6 +411,10 @@ def build_picture(incident: Incident, evidence: Evidence,
     situation.append(
         Assessment.reported("report", incident.description, confidence=0.4)
     )
+    for n, update in enumerate(incident.updates, start=1):
+        situation.append(
+            Assessment.reported(f"update {n}", update, confidence=0.4)
+        )
 
     # ------------------------------------------------------------- location
     if evidence.geocode.ok:
@@ -404,13 +441,13 @@ def build_picture(incident: Incident, evidence: Evidence,
     if evidence.building.ok and evidence.building.data:
         described = "; ".join(
             f"{f.field}: {f.value}" for f in evidence.building.data
-            if not (f.field == "structure type" and f.value.lower() in {"yes", "true"})
+            if f.value.lower() not in _EMPTY_TAG_VALUES
         )
         if described:
             rows = tuple(
                 ledger.record("osm.survey", src, f.field, f.value)
                 for f in evidence.building.data
-                if not (f.field == "structure type" and f.value.lower() in {"yes", "true"})
+                if f.value.lower() not in _EMPTY_TAG_VALUES
             )
             situation.append(
                 Assessment.verified("building", described, "public building record",
@@ -428,7 +465,7 @@ def build_picture(incident: Incident, evidence: Evidence,
             Assessment.unknown("building", "no public building record for this address")
         )
 
-    claimed = _claimed_storeys(incident.description)
+    claimed = _claimed_storeys(incident.full_text)
     if storeys and claimed and storeys != claimed:
         situation.append(
             Assessment.contradicted(
@@ -455,12 +492,8 @@ def build_picture(incident: Incident, evidence: Evidence,
             Assessment.verified("occupancy", occupancy, "building record",
                                 src, evidence_ids=occupancy_ev)
         )
-    else:
-        people.append(
-            Assessment.unknown("occupancy", "no source establishes the building's use")
-        )
 
-    reported_people = _people_clause(incident.description)
+    reported_people = _people_clause(incident.full_text)
     if reported_people:
         people.append(Assessment.reported("persons_reported", reported_people))
 
@@ -540,7 +573,7 @@ def build_picture(incident: Incident, evidence: Evidence,
 
     if kind is Kind.ARMED:
         threats.append(
-            Assessment.reported("threat", incident.description, confidence=0.35)
+            Assessment.reported("threat", incident.full_text, confidence=0.35)
         )
     if kind is Kind.GAS:
         threats.append(
@@ -573,7 +606,12 @@ def build_picture(incident: Incident, evidence: Evidence,
             )
 
     # --------------------------------------------------------------- access
-    if storeys is not None:
+    #
+    # Gated on the discipline, not on the building. A ladder company is a fire
+    # resource, and recommending one because a shooting happened in a tall
+    # building is an error anyone operational spots instantly. Medical access
+    # is a stretcher route, and `ic.ems` writes that one.
+    if kind in (Kind.FIRE, Kind.GAS) and storeys is not None:
         if storeys >= _AERIAL_STOREYS:
             situation.append(
                 Assessment.inferred(
@@ -639,7 +677,30 @@ def build_picture(incident: Incident, evidence: Evidence,
 
     plan = plan_approach(geo.point, wind, station_places, exposure_places,
                          hydrant_values)
+    # Upwind approach, water supply and which engine arrives from which side
+    # are fire answers. An armed incident inherited all of them, so a report of
+    # shots fired came back recommending a hydrant.
     approach_rows = plan.assessments()
+    if kind not in (Kind.FIRE, Kind.GAS):
+        approach_rows = tuple(
+            a for a in approach_rows
+            if a.field not in {"approach", "water supply", "responding", "plume"}
+        )
+
+    # A medical call inherited a building record and a nearest hospital and
+    # stopped there, which is a fire brief with the fire removed. These are the
+    # two things an EMS crew plans around that the evidence already supports.
+    from ic.ems import recommendations as ems_recommendations
+    from ic.police import recommendations as police_recommendations
+
+    hospital_row = next((a for a in resources if a.field == "hospital"
+                         and a.value), None)
+    approach_rows = approach_rows + ems_recommendations(
+        kind, incident.full_text, storeys,
+        hospital_row.value if hospital_row else None,
+    ) + police_recommendations(
+        kind, [(p.name, p.kind, p.distance_m) for p in exposure_places],
+    )
 
     # An aerial of the address. No request is made here — this is the URL the
     # browser will load, so the picture stays small and the image never enters

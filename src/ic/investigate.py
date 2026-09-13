@@ -32,11 +32,12 @@ from ic.tools.base import ToolResult, Transcript
 # What each tool can answer. The planner matches these against the gaps.
 CAPABILITIES: dict[str, tuple[str, ...]] = {
     "maps.geocode": ("location",),
-    "osm.survey": ("building", "occupancy", "hazards", "fire_station", "hospital",
-                   "access"),
+    "osm.survey": ("building", "occupancy", "external hazards", "fire_station",
+                   "hospital", "access"),
     "web.public_search": ("public_context",),
-    "osm.utility": ("utility",),
 }
+# `osm.utility` was listed here and implemented nowhere. The planner could pick
+# a step that could never run, against a gap that could never close.
 
 # A hard stop, so a schema gap nothing can answer cannot spin forever.
 MAX_STEPS = 6

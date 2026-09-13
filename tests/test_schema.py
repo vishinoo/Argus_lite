@@ -235,7 +235,6 @@ def test_a_contradicted_field_is_not_verified():
 def test_a_fire_has_questions_no_public_source_can_answer():
     from ic.schema import unverifiable_for
     fields = unverifiable_for("fire")
-    assert "fire_confirmed" in fields
     assert "persons_trapped" in fields
     assert "severity" in fields
 
@@ -298,3 +297,43 @@ def test_a_verified_item_with_no_evidence_id_drags_traceability_down():
         A.verified("b", "2", "e", src),
     ))
     assert p.traceability == 0.5
+
+
+# ── an open question has to earn its line ─────────────────────────────
+#
+# The list is read under pressure, and every entry that restates the call
+# pushes the ones that decide the incident further down it.
+
+
+def test_an_open_question_does_not_restate_the_call():
+    from ic.schema import unverifiable_for
+    # Somebody has rung to report a fire. "Is there a fire?" is not a finding,
+    # and crews roll on the report either way.
+    assert "fire_confirmed" not in unverifiable_for("fire")
+    assert "leak_confirmed" not in unverifiable_for("gas")
+
+
+def test_the_questions_that_decide_the_incident_survive():
+    from ic.schema import unverifiable_for
+    fire = unverifiable_for("fire")
+    for field in ("persons_trapped", "severity", "hazmat", "current_access"):
+        assert field in fire
+
+
+def test_an_armed_call_still_asks_whether_there_is_a_weapon():
+    from ic.schema import unverifiable_for
+    # Deliberately not symmetrical with fire. "Shots heard" and "an armed
+    # person is present" are different scenes with different approaches, so
+    # confirming the weapon changes what police do; confirming a fire does not
+    # change what an engine does.
+    assert "weapon_confirmed" in unverifiable_for("armed")
+
+
+def test_occupancy_is_not_an_obligation_the_map_cannot_meet():
+    from ic.schema import required_for
+    # What a building is *used for* is worth showing when a record has it, and
+    # it still drives the evacuation-assistance consideration. But most
+    # addresses carry no such tag, so requiring it scored every ordinary
+    # incident as incomplete for a fact that changes nothing about the response.
+    for kind in ("fire", "medical", "armed", "missing person"):
+        assert "occupancy" not in required_for(kind)

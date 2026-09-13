@@ -148,14 +148,20 @@ class Assessment:
 # What each kind of incident obliges Argus to determine. Missing entries are
 # the agent's to-do list, so this table is the investigation plan.
 _REQUIRED: dict[str, tuple[str, ...]] = {
-    "fire": ("location", "building", "occupancy", "access", "hazards",
+    "fire": ("location", "building", "access", "external hazards",
              "fire_station", "hospital"),
-    "medical": ("location", "occupancy", "hospital", "access"),
-    "gas": ("location", "building", "hazards", "utility", "fire_station"),
-    "armed": ("location", "threat", "occupancy", "hospital"),
-    "missing person": ("location", "building", "occupancy"),
-    "unknown": ("location", "building", "hazards"),
+    "medical": ("location", "hospital"),
+    "gas": ("location", "building", "external hazards", "fire_station"),
+    "armed": ("location", "threat", "hospital"),
+    "missing person": ("location", "building"),
+    "unknown": ("location", "building", "external hazards"),
 }
+#
+# `occupancy` used to be required on four of those. What a building is *used
+# for* is worth showing when a record carries it, and it still drives the
+# evacuation-assistance consideration — but most addresses carry no such tag,
+# so obliging it scored ordinary incidents incomplete over a fact that changed
+# nothing about the response, and printed an UNKNOWN row saying so.
 
 
 # Questions no public source can answer before a crew is on scene. They are
@@ -169,11 +175,18 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
 # emergency. Naming them is the honest correction, and it is also the more
 # useful output: these are exactly the questions the first-arriving officer
 # has to answer.
+#
+# An entry has to earn its line, though. `fire_confirmed` and `leak_confirmed`
+# were dropped because they restate the call: somebody has rung to report a
+# fire, crews roll on the report, and asking whether there is one pushed the
+# questions that decide the incident further down a list read under pressure.
+# `weapon_confirmed` stays, deliberately breaking the symmetry — "shots heard"
+# and "an armed person is present" are different scenes with different
+# approaches, so that one changes what police do on arrival.
 _UNVERIFIABLE: dict[str, tuple[str, ...]] = {
-    "fire": ("fire_confirmed", "persons_trapped", "severity", "hazmat",
-             "current_access"),
+    "fire": ("persons_trapped", "severity", "hazmat", "current_access"),
     "medical": ("patient_condition", "persons_involved", "scene_safety"),
-    "gas": ("leak_confirmed", "concentration", "ignition_sources", "persons_present"),
+    "gas": ("utility", "concentration", "ignition_sources", "persons_present"),
     "armed": ("weapon_confirmed", "suspect_location", "persons_at_risk",
               "scene_safety"),
     "missing person": ("person_description", "last_known_position", "time_missing"),

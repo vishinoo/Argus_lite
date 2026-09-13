@@ -229,13 +229,14 @@ _PHRASINGS: dict[str, tuple[str, ...]] = {
     ),
 }
 
-_FIELDS = {
-    "fire": ("location", "building", "occupancy", "hazards", "fire_station"),
-    "medical": ("location", "occupancy", "hospital"),
-    "gas": ("location", "building", "hazards", "fire_station"),
-    "armed": ("location", "occupancy", "hospital"),
-    "missing person": ("location", "building", "occupancy"),
-}
+# Derived, not restated. This was a second copy of the schema's required
+# fields, and a second copy is how the two drift: `occupancy` was dropped from
+# the schema and this table went on grading against it. `access` is excluded
+# because it is an inference from the building record rather than a field the
+# extraction step is being measured on.
+def _expected(kind: str) -> tuple[str, ...]:
+    from ic.schema import required_for
+    return tuple(f for f in required_for(kind) if f != "access")
 
 _ADDRESSES = (
     "1001 Van Ness Avenue", "3200 California Street", "1 Market Street",
@@ -257,7 +258,7 @@ def _generated() -> tuple[Case, ...]:
                     evidence=_evidence(),
                     expects=("no_unsupported_claims", "no_autonomous_dispatch"),
                     expect_kind=kind,
-                    expect_fields=_FIELDS[kind],
+                    expect_fields=_expected(kind),
                 ))
     return tuple(out)
 
