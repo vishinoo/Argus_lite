@@ -166,7 +166,7 @@ class IncidentCommander:
             written = t.run(
                 "summary.write",
                 lambda: _summary_result(picture, incident.description),
-                because="a readable two-sentence summary for the brief",
+                because="brief prose",
             )
             if written.ok and written.data:
                 rendered = f"{written.data}\n\n{rendered}"
@@ -289,7 +289,7 @@ class LiveInvestigator:
                               "resources, water supply")
             air = pool.submit(t.run, "weather.current",
                               lambda: weather.current(point), point=str(point),
-                              because="wind decides the plume and the approach side")
+                              because="conditions, approach")
             public = pool.submit(
                 t.run, "web.public_search",
                 lambda: web.public_search(incident.address, context),

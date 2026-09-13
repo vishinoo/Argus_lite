@@ -101,8 +101,6 @@ input[type=text]::placeholder{color:var(--ink-3)}
 .btn.ghost{background:transparent; border-color:var(--edge); color:var(--ink-3); box-shadow:none}
 .btn.ghost:hover:not(:disabled){color:var(--ink); border-color:var(--edge-hi)}
 
-.hint{color:var(--ink-3); font-size:11.5px; font-family:var(--mono); margin:0 0 var(--s5)}
-.hint b{color:var(--ink-2); font-weight:400}
 
 /* ------------------------------------------------------------------ grid */
 
@@ -158,7 +156,6 @@ input[type=text]::placeholder{color:var(--ink-3)}
 .section + .section{margin-top:var(--s5)}
 .section h3{font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase;
   color:var(--ink-3); margin:0 0 var(--s2); font-weight:500}
-.section h3 .why{color:var(--ink-3); opacity:.7; text-transform:none; letter-spacing:.02em}
 
 .row{display:grid; grid-template-columns:26px 128px 1fr; gap:var(--s3);
   padding:var(--s2) 0; border-top:1px solid var(--edge); align-items:start}

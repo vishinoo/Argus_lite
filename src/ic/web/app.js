@@ -47,6 +47,20 @@ function drawRail(states = {}) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, reduced ? 0 : ms));
 
+/* A cold lookup against Overpass can run to half a minute. Without this the
+   screen is motionless for that whole time and reads as hung, so the active
+   stage carries the real elapsed time until the server answers. */
+let ticker = null;
+function startClock() {
+  const t0 = performance.now();
+  stopClock();
+  ticker = setInterval(() => {
+    const el = rail.querySelector('.stage[data-state="active"] .note');
+    if (el) el.textContent = `${((performance.now() - t0) / 1000).toFixed(1)}s`;
+  }, 100);
+}
+function stopClock() { clearInterval(ticker); ticker = null; }
+
 async function run(text) {
   $("go").disabled = $("fail").disabled = true;
   out.innerHTML = "";
@@ -55,6 +69,7 @@ async function run(text) {
   drawRail(states);
 
   let data;
+  startClock();
   try {
     const res = await fetch("/api/run", {
       method: "POST",
@@ -62,8 +77,10 @@ async function run(text) {
       body: JSON.stringify({ text }),
     });
     data = await res.json();
+    stopClock();
     if (data.error) throw new Error(data.error);
   } catch (err) {
+    stopClock();
     out.innerHTML = `<div class="refusal glass"><h2>Could not run</h2>
       <p>${esc(err.message)}</p></div>`;
     drawRail({ observe: "done", investigate: "blocked" });
@@ -148,21 +165,21 @@ async function render(data, states) {
 }
 
 const SECTIONS = [
-  ["situation", "Situation", ""],
-  ["people", "People", ""],
-  ["threats", "Threats", "— can make this worse"],
-  ["exposures", "Exposures", "— at risk if this spreads"],
-  ["resources", "Resources", ""],
-  ["approach", "Approach", "— second agent: upwind side, plume, water"],
-  ["open_questions", "Open questions", "— no source can settle these before arrival"],
+  ["situation", "Situation"],
+  ["people", "People"],
+  ["threats", "Threats"],
+  ["exposures", "Exposures"],
+  ["resources", "Resources"],
+  ["approach", "Approach"],
+  ["open_questions", "Open questions"],
 ];
 
 function picturePanel(brief, data) {
   const p = brief.picture;
-  const body = SECTIONS.map(([key, title, why]) => {
+  const body = SECTIONS.map(([key, title]) => {
     const items = p[key] || [];
     if (!items.length) return "";
-    return `<div class="section"><h3>${title} <span class="why">${why}</span></h3>
+    return `<div class="section"><h3>${title}</h3>
       ${items.map((a) => `
         <div class="row">
           <span class="state" data-s="${esc(a.status)}" title="${esc(a.status)}"
@@ -186,7 +203,7 @@ function picturePanel(brief, data) {
     ${aerial(p)}
     <div class="legend">${legend}</div>
     ${body}
-    <p class="footnote">Advisory only. Argus does not dispatch; a human decides.</p>`;
+    <p class="footnote">Advisory — Argus does not dispatch.</p>`;
 
   const img = panel.querySelector(".aerial img");
   if (img) img.addEventListener("load", () => img.classList.add("ready"));
@@ -201,14 +218,13 @@ function aerial(picture) {
       <span class="crosshair"><i></i></span>
       <figcaption class="cap">Esri</figcaption>
     </figure>
-    <p class="vintage">${esc(view.caveat)} ${esc(view.attribution)}</p>`;
+    <p class="vintage">Esri World Imagery · capture date not published</p>`;
 }
 
 function ledgerPanel(picture) {
   const panel = document.createElement("section");
   panel.className = "panel glass reveal";
-  panel.innerHTML = `<h2>Evidence ledger
-      <span class="qualifier">· every verified claim points at a row here</span></h2>
+  panel.innerHTML = `<h2>Evidence ledger</h2>
     <div class="ledger">${picture.ledger.map((r) => `
       <div class="ledger-row">
         <span class="ev">${esc(r.id)}</span>
@@ -225,7 +241,7 @@ function actionsPanel(actions) {
   panel.innerHTML = `<h2>Actions</h2><div class="chain">${actions.map((a) => `
     <div class="node"><span class="mark ${a.ok ? "" : "bad"}">${a.ok ? "✓" : "✗"}</span>
       <span class="what">${esc(a.tool)}
-        ${a.rehearsed ? '<span class="sought">— rehearsed, not delivered</span>' : ""}</span></div>
+        ${a.rehearsed ? '<span class="sought">rehearsed</span>' : ""}</span></div>
     <div class="node"><span class="rule">↓</span>
       <span class="detail">${esc(a.summary)}</span></div>`).join("")}</div>`;
   return panel;
@@ -255,9 +271,7 @@ function metricsPanel(data) {
   panel.className = "panel glass reveal";
   panel.innerHTML = `<h2>Run record</h2><div class="metrics">${cells.map(
     ([k, v, tone]) => `<div class="metric"><div class="k">${k}</div>
-      <div class="v ${tone}">${v}</div></div>`).join("")}</div>
-    <p class="footnote">Open questions are counted as a result, not a gap:
-      they are what no desk can answer before a crew arrives.</p>`;
+      <div class="v ${tone}">${v}</div></div>`).join("")}</div>`;
   return panel;
 }
 
@@ -267,8 +281,7 @@ async function integrations() {
     const items = await res.json();
     const live = items.filter((i) => i.live).length;
     $("integrations").innerHTML =
-      `<b>${live}/${items.length}</b> integrations live` +
-      (live < items.length ? " · rest rehearsing" : "");
+      `<b>${live}/${items.length}</b> integrations live`;
   } catch { /* header detail only; never block the run */ }
 }
 

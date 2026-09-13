@@ -93,8 +93,7 @@ def cmd_check(args: argparse.Namespace) -> int:
             print(f"{dim}      → {item.how}{reset}")
     print()
     if live < total:
-        print(f"{dim}  Rehearsed actions are written to out/ and counted separately "
-              f"from delivered ones.{reset}\n")
+        print(f"{dim}  Rehearsed actions are written to out/.{reset}\n")
     return 0
 
 
@@ -152,8 +151,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"  {red}{bold}WORKFLOW NOT EXECUTED{reset}")
         print(f"  {result.refused}\n")
     elif not result.executed:
-        print(f"  {dim}Brief prepared. Re-run with --execute to open the incident "
-              f"channel and notify.{reset}\n")
+        print(f"  {dim}Brief prepared. Re-run with --execute to notify.{reset}\n")
 
     _dashboard(result, dim, bold, reset, green, yellow)
     return 0
@@ -203,11 +201,10 @@ def _picture(result, dim, bold, reset, red, green, yellow) -> None:
         ("SITUATION", picture.situation),
         ("PEOPLE", picture.people),
         ("THREATS", picture.threats),
-        ("EXPOSURES — at risk if this spreads", picture.exposures),
+        ("EXPOSURES", picture.exposures),
         ("RESOURCES", picture.resources),
-        ("APPROACH — second agent: upwind side, plume, water", picture.approach),
-        ("OPEN QUESTIONS — no source can settle these before arrival",
-         picture.open_questions),
+        ("APPROACH", picture.approach),
+        ("OPEN QUESTIONS", picture.open_questions),
     )
     for title, items in sections:
         if not items:
@@ -236,8 +233,7 @@ def _picture(result, dim, bold, reset, red, green, yellow) -> None:
           f"{counts['VERIFIED']} verified · {counts['REPORTED']} reported · "
           f"{counts['INFERRED']} inferred · {counts['CONTRADICTED']} contradicted · "
           f"{counts['UNKNOWN']} unknown")
-    print(f"{dim}  The open questions above are the ones that decide this incident,{reset}")
-    print(f"{dim}  and no desk can answer them. Argus does not dispatch; a human decides.{reset}")
+    print(f"{dim}  Advisory — Argus does not dispatch.{reset}")
     print()
 
 
