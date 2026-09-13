@@ -12,7 +12,7 @@ you how much of it it actually established.
 **The dispatcher stays in control. Argus does not dispatch units. It prepares
 the intelligence a human needs to decide faster.**
 
-[**System and reliability brief**](BRIEF.md) · [Demo script](DEMO.md)
+[**▶ Two-minute demo**](https://youtu.be/O0qCljFcMg4) · [**System and reliability brief**](BRIEF.md) · [Demo script](DEMO.md)
 
 ## It has a job, not a prompt
 

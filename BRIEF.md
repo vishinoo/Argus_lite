@@ -1,5 +1,7 @@
 # Argus Incident Commander — system and reliability brief
 
+[**▶ Two-minute demo**](https://youtu.be/O0qCljFcMg4)
+
 An emergency call is one sentence. Acting on it needs a dozen facts that live
 in different systems. Argus investigates across those systems, states what it
 established and what it could not, and coordinates the result to the response
