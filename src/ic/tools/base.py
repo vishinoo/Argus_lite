@@ -18,8 +18,8 @@ reason it is empty travels with it.
 
 Rehearsal mode
 --------------
-Tools that would send something to a real person — Slack, mail, a calendar
-invitation — run in rehearsal unless credentials are present. Rehearsal
+Tools that would send something to a real person — Slack, the responder alert
+— run in rehearsal unless credentials are present. Rehearsal
 records exactly what *would* have been sent and marks itself as rehearsed. It
 is not a stub that pretends to succeed: the transcript says `rehearsed`, the
 dashboard says `rehearsed`, and the evaluation counts it separately from a
@@ -76,6 +76,23 @@ class ToolCall:
     def ok(self) -> bool:
         return self.result.ok
 
+    @property
+    def link(self) -> str | None:
+        """Somewhere a human can go and see this happened, if there is one.
+
+        `result.data` is deliberately not serialised — it holds Places,
+        Findings and other objects that are not JSON and have no business in a
+        payload — so the one field the console needs is lifted out by name.
+        """
+        data = self.result.data
+        if not isinstance(data, dict):
+            return None
+        for key in ("permalink", "read_at"):
+            value = data.get(key)
+            if isinstance(value, str) and value.startswith("http"):
+                return value
+        return None
+
     def to_dict(self) -> dict:
         return {
             "tool": self.tool,
@@ -85,6 +102,7 @@ class ToolCall:
             "summary": self.result.summary,
             "sources": [str(s) for s in self.result.sources],
             "error": self.result.error,
+            "link": self.link,
             "latency_ms": round(self.latency_ms, 1),
         }
 
@@ -150,7 +168,7 @@ class Transcript:
     def actions(self) -> Iterator[ToolCall]:
         """Calls that changed something outside this process, or would have."""
         for c in self.calls:
-            if c.tool.split(".")[0] in {"slack", "gmail", "calendar", "ntfy"}:
+            if c.tool.split(".")[0] in {"slack", "ntfy"}:
                 yield c
 
     def to_dict(self) -> dict:

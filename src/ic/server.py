@@ -95,10 +95,7 @@ class Handler(BaseHTTPRequestHandler):
                          "Argus does not guess a location."
             })
 
-        commander = IncidentCommander(
-            LiveInvestigator(),
-            notify_email=payload.get("notify") or "command@example.gov",
-        )
+        commander = IncidentCommander(LiveInvestigator())
         incident_id = (payload.get("incident_id") or "").strip() or _next_id()
         result = commander.run(
             Incident(incident_id, address, text, updates=updates),

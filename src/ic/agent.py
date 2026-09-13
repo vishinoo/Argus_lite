@@ -4,7 +4,7 @@ The agent's shape is deliberately boring, because the interesting decisions
 are in what it refuses to do.
 
 **It does not act until told.** Investigation and reasoning always run; the
-actions — Slack, mail, calendar — happen only when `execute` is set. The
+actions — the responder alert and Slack — happen only when `execute` is set. The
 dispatcher reads the brief and decides. An agent that opens an incident
 channel the instant a sentence is typed is not decision support, it is a
 liability with a webhook.
@@ -87,14 +87,10 @@ class IncidentCommander:
     def __init__(
         self,
         investigator: Investigator,
-        notify_email: str = "command@example.gov",
-        schedule_briefing: bool = True,
         alert_topic: str | None = None,
         deliver: bool = True,
     ) -> None:
         self._investigator = investigator
-        self._notify = notify_email
-        self._schedule = schedule_briefing
         self._alert_topic = alert_topic or alert.configured_topic()
         self._deliver = deliver
         """False makes every outward action rehearse, whatever credentials
@@ -163,6 +159,7 @@ class IncidentCommander:
         # Readable prose for the Slack post, written by a model where one is
         # configured and checked against the evidence either way. A summary
         # that introduces anything is thrown away, not corrected.
+        summary = None
         if picture is not None:
             written = t.run(
                 "summary.write",
@@ -170,7 +167,15 @@ class IncidentCommander:
                 because="brief prose",
             )
             if written.ok and written.data:
-                rendered = f"{written.data}\n\n{rendered}"
+                summary = written.data
+
+        # `Brief.render` is laid out for a terminal and wraps into porridge on
+        # a phone, which is where this gets read.
+        from ic.report import slack_report
+
+        rendered = slack_report(
+            incident, brief.priority.value, brief.headline, picture, summary,
+        )
 
         opened = t.run(
             "slack.create_channel",
@@ -190,27 +195,6 @@ class IncidentCommander:
             if posted.data and posted.data.get("path"):
                 artifacts.append(posted.data["path"])
 
-        subject = f"ARGUS INCIDENT BRIEF — {brief.headline} — {incident.address}"
-        mailed = t.run(
-            "gmail.send",
-            lambda: comms.send_mail(self._notify, subject, rendered,
-                                    rehearse=not self._deliver),
-            to=self._notify, subject=subject,
-        )
-        if mailed.data and mailed.data.get("path"):
-            artifacts.append(mailed.data["path"])
-
-        if self._schedule:
-            booked = t.run(
-                "calendar.schedule",
-                lambda: comms.schedule_briefing(
-                    f"Incident briefing — {incident.incident_id} {incident.address}",
-                    (self._notify,),
-                ),
-                attendees=self._notify,
-            )
-            if booked.data and booked.data.get("path"):
-                artifacts.append(booked.data["path"])
         return artifacts
 
 

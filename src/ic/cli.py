@@ -135,10 +135,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             print(f"      {dim}{call.result.error}{reset}")
 
     transcript = Transcript(on_call=show)
-    commander = IncidentCommander(
-        LiveInvestigator(), notify_email=args.notify,
-        schedule_briefing=not args.no_calendar,
-    )
+    commander = IncidentCommander(LiveInvestigator())
     result = commander.run(incident, execute=args.execute, transcript=transcript)
 
     if args.json:
@@ -173,7 +170,7 @@ def _evidence_chain(result, dim, bold, reset) -> None:
     model. Every arrow is a real tool call with a real latency.
     """
     calls = [c for c in result.transcript.calls
-             if not c.tool.split(".")[0] in {"slack", "gmail", "calendar"}]
+             if not c.tool.split(".")[0] in {"slack", "ntfy"}]
     if not calls:
         return
     print(f"{bold}  EVIDENCE CHAIN{reset}")
@@ -252,8 +249,6 @@ def _dashboard(result, dim, bold, reset, green, yellow) -> None:
         ("Sources evaluated", bool(t.sources)),
         ("Brief generated", True),
         ("Slack notified", any(c.tool.startswith("slack") and c.ok for c in t.calls)),
-        ("Email notified", any(c.tool == "gmail.send" and c.ok for c in t.calls)),
-        ("Briefing scheduled", any(c.tool == "calendar.schedule" and c.ok for c in t.calls)),
     ]
     print(f"{bold}  DASHBOARD{reset}")
     for label, ok in rows:
@@ -289,8 +284,6 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--id", default="IC-001")
     run.add_argument("--execute", action="store_true",
                      help="carry out the actions, not just prepare them")
-    run.add_argument("--notify", default="command@example.gov")
-    run.add_argument("--no-calendar", action="store_true")
     run.add_argument("--json", action="store_true")
     run.add_argument("--no-colour", action="store_true")
     run.set_defaults(func=cmd_run)

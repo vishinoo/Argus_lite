@@ -53,8 +53,6 @@ def _summary_provider() -> str | None:
 def status() -> tuple[Integration, ...]:
     """What is live, what is rehearsing, and what to do about it."""
     slack = os.environ.get("SLACK_BOT_TOKEN")
-    smtp_user = os.environ.get("SMTP_USER")
-    smtp_pass = os.environ.get("SMTP_PASS")
 
     return (
         Integration(
@@ -80,18 +78,6 @@ def status() -> tuple[Integration, ...]:
             "api.slack.com/apps → Create New App → From a manifest, paste "
             "slack-app-manifest.yaml, Install to Workspace, then put the "
             "xoxb- token in .env as SLACK_BOT_TOKEN",
-        ),
-        Integration(
-            "Gmail", bool(smtp_user and smtp_pass),
-            "live — will send a real email" if (smtp_user and smtp_pass)
-            else "REHEARSING — composes the mail, does not send",
-            "turn on 2-step verification, create an app password at "
-            "myaccount.google.com/apppasswords, then set SMTP_USER and "
-            "SMTP_PASS in .env",
-        ),
-        Integration(
-            "Calendar", True,
-            "live — writes a real .ics you can open and send", "",
         ),
         Integration(
             "Summary prose", bool(_summary_provider()),

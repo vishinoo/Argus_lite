@@ -1,4 +1,4 @@
-"""The actions: Slack, mail, calendar.
+"""The action that touches someone else: Slack.
 
 These are the only tools that touch someone else. Everything before them reads
 the world; these change it, which means they need a different standard.
@@ -14,9 +14,14 @@ is a stub that returns success, and the failure mode is a room full of people
 believing an email went to a fire chief when nothing left the laptop. If this
 agent says it sent something, it sent it.
 
-The calendar is the exception worth noting: rehearsal still produces a real
-`.ics` file, because a calendar invitation is a document, and a document you
-can open is better evidence than a log line saying one was created.
+A post also comes back with a permalink. "Posted to #C0C1C6YDTDH" is true and
+useless — nobody watching can act on a channel id, and a message nobody can
+find is indistinguishable from one that was never sent.
+
+Mail and a calendar invitation used to live here too. Both rehearsed on every
+run anybody actually did, which meant two of the integrations on the dashboard
+were permanently reporting that they had not done anything. They are in git if
+they are wanted back.
 """
 
 from __future__ import annotations
@@ -132,65 +137,46 @@ def slack_post(channel: str, text: str, rehearse: bool = False) -> ToolResult:
     if not payload.get("ok"):
         return ToolResult(False, f"Slack refused: {payload.get('error')}",
                           error=str(payload.get("error")))
-    return ToolResult(True, f"brief posted to #{channel}",
-                      sources=(Source("Slack", "https://slack.com"),))
 
-
-# ------------------------------------------------------------------- mail
-
-
-def send_mail(to: str, subject: str, body: str,
-              rehearse: bool = False) -> ToolResult:
-    user = None if rehearse else os.environ.get("SMTP_USER")
-    password = None if rehearse else os.environ.get("SMTP_PASS")
-    host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-    port = int(os.environ.get("SMTP_PORT", "587"))
-
-    if not (user and password):
-        path = _rehearsal_path("mail", subject)
-        path.write_text(f"To: {to}\nSubject: {subject}\n\n{body}\n")
-        return ToolResult(
-            True, f"brief prepared for {to} (rehearsed → {path})",
-            data={"path": str(path)}, rehearsed=True, sources=(LOCAL,),
-        )
-
-    msg = EmailMessage()
-    msg["From"], msg["To"], msg["Subject"] = user, to, subject
-    msg.set_content(body)
-    with smtplib.SMTP(host, port, timeout=TIMEOUT_S) as s:
-        s.starttls()
-        s.login(user, password)
-        s.send_message(msg)
-    return ToolResult(True, f"brief sent to {to}",
-                      sources=(Source("SMTP", host),))
-
-
-# --------------------------------------------------------------- calendar
-
-
-def schedule_briefing(
-    title: str, attendees: tuple[str, ...], minutes_from_now: int = 30,
-    duration_min: int = 20,
-) -> ToolResult:
-    """A real .ics either way — a file you can open beats a log line."""
-    start = datetime.now(timezone.utc) + timedelta(minutes=minutes_from_now)
-    end = start + timedelta(minutes=duration_min)
-    stamp = "%Y%m%dT%H%M%SZ"
-    ics = "\r\n".join([
-        "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Argus Incident Commander//EN",
-        "BEGIN:VEVENT",
-        f"UID:{abs(hash((title, start.isoformat())))}@argus",
-        f"DTSTAMP:{datetime.now(timezone.utc).strftime(stamp)}",
-        f"DTSTART:{start.strftime(stamp)}", f"DTEND:{end.strftime(stamp)}",
-        f"SUMMARY:{title}",
-        *[f"ATTENDEE;CN={a}:mailto:{a}" for a in attendees],
-        "END:VEVENT", "END:VCALENDAR",
-    ])
-    path = _rehearsal_path("briefing", title).with_suffix(".ics")
-    path.write_text(ics)
-    when = start.strftime("%H:%M UTC")
+    # Where it landed, in a form a human can open. "posted to #C0C1C6YDTDH" is
+    # true and useless: nobody watching can act on a channel id, and a post
+    # nobody can find is indistinguishable from one that never happened.
+    permalink = _permalink(token, channel, payload.get("ts"))
+    where = permalink or f"#{channel}"
     return ToolResult(
-        True, f"briefing at {when} ({path})",
-        data={"path": str(path), "start": start.isoformat()},
-        rehearsed=True, sources=(LOCAL,),
+        True, f"brief posted to {where}",
+        data={"channel": channel, "ts": payload.get("ts"), "permalink": permalink},
+        sources=(Source("Slack", permalink or "https://slack.com"),),
     )
+
+
+def _permalink(token: str, channel: str, ts: str | None) -> str | None:
+    """A link straight to the message, or None.
+
+    Never raises and never fails the post. The message was delivered; losing
+    the convenience link is not a reason to report that it was not.
+    """
+    if not ts:
+        return None
+    try:
+        payload = _slack_get("chat.getPermalink", token,
+                             {"channel": channel, "message_ts": ts})
+    except Exception:  # noqa: BLE001 - a missing link is not a failed delivery
+        return None
+    return payload.get("permalink") if payload.get("ok") else None
+
+
+def _slack_get(method: str, token: str, params: dict) -> dict:
+    """Slack serves some methods over GET only.
+
+    `chat.getPermalink` is one of them: handed a JSON body it answers
+    `invalid_arguments` and names both fields as missing, which reads exactly
+    like a bug in the caller rather than in the verb.
+    """
+    query = urllib.parse.urlencode(params)
+    req = urllib.request.Request(
+        f"{SLACK_API}/{method}?{query}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:
+        return json.loads(r.read().decode())
