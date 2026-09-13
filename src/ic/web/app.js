@@ -15,6 +15,17 @@ const STAGES = [
   ["document", "Evidence chain recorded"],
 ];
 
+/* A glyph per state. The word is kept as the title attribute and in the legend,
+   so nothing depends on the glyph alone — colour-blind readers and bad
+   projectors both need the word somewhere. */
+const GLYPH = {
+  VERIFIED: "\u2713",       // check — a record says so
+  REPORTED: "\u201C",       // open quote — somebody said so
+  INFERRED: "\u2234",       // therefore — worked out from something else
+  CONTRADICTED: "\u2260",   // not equal — two sources disagree
+  UNKNOWN: "?",              // nobody has established this
+};
+
 const $ = (id) => document.getElementById(id);
 const rail = $("rail");
 const out = $("out");
@@ -39,6 +50,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, reduced ? 0 : ms));
 async function run(text) {
   $("go").disabled = $("fail").disabled = true;
   out.innerHTML = "";
+  document.querySelectorAll(".aside").forEach((n) => n.remove());
   const states = { observe: "done", investigate: "active" };
   drawRail(states);
 
@@ -70,6 +82,10 @@ async function render(data, states) {
     (c) => ["slack", "gmail", "calendar", "ntfy"].includes(c.tool.split(".")[0]));
 
   // ---- evidence chain, revealed at the pace it actually ran
+  const aside = document.createElement("div");
+  aside.className = "aside";
+  out.parentElement.appendChild(aside);
+
   const chain = document.createElement("section");
   chain.className = "panel glass reveal";
   chain.innerHTML = `<h2>Evidence chain</h2><div class="chain" id="chain">
@@ -77,7 +93,7 @@ async function render(data, states) {
     <div class="node"><span class="rule">↓</span>
       <span class="detail">${esc(data.incident.description)}</span></div>
   </div>`;
-  out.appendChild(chain);
+  aside.appendChild(chain);
   const chainBox = $("chain");
 
   for (const call of lookups) {
@@ -105,7 +121,7 @@ async function render(data, states) {
   // ---- the picture
   const b = data.brief;
   if (b.picture) out.appendChild(picturePanel(b, data));
-  if (b.picture && (b.picture.ledger || []).length) out.appendChild(ledgerPanel(b.picture));
+  if (b.picture && (b.picture.ledger || []).length) aside.appendChild(ledgerPanel(b.picture));
 
   states.reason = "done";
   states.decide = data.refused ? "blocked" : "done";
@@ -120,13 +136,13 @@ async function render(data, states) {
       </div>`);
     states.act = "blocked";
   } else if (actions.length) {
-    out.appendChild(actionsPanel(actions));
+    aside.appendChild(actionsPanel(actions));
     states.act = "done";
   }
   drawRail(states);
   await sleep(200);
 
-  out.appendChild(metricsPanel(data));
+  aside.appendChild(metricsPanel(data));
   states.document = "done";
   drawRail(states);
 }
@@ -149,7 +165,8 @@ function picturePanel(brief, data) {
     return `<div class="section"><h3>${title} <span class="why">${why}</span></h3>
       ${items.map((a) => `
         <div class="row">
-          <span class="state" data-s="${esc(a.status)}">${esc(a.status)}</span>
+          <span class="state" data-s="${esc(a.status)}" title="${esc(a.status)}"
+                aria-label="${esc(a.status)}">${GLYPH[a.status] || "\u00b7"}</span>
           <span class="field">${esc(a.field)}</span>
           <span class="value">${a.value ? esc(a.value) : '<span class="none">not established</span>'}
             ${(a.evidence_ids || []).map((id) => `<span class="ev">${esc(id)}</span>`).join("")}
@@ -158,12 +175,33 @@ function picturePanel(brief, data) {
     </div>`;
   }).join("");
 
+  const legend = Object.keys(GLYPH).map((k) =>
+    `<span class="item"><span class="state" data-s="${k}">${GLYPH[k]}</span>${k}</span>`
+  ).join("");
+
   const panel = document.createElement("section");
   panel.className = "panel glass reveal";
   panel.innerHTML = `<h2>${esc(brief.priority)} — ${esc(brief.headline)}
-    <span class="qualifier">· ${esc(brief.address)}</span></h2>${body}
+    <span class="qualifier">· ${esc(brief.address)}</span></h2>
+    ${aerial(p)}
+    <div class="legend">${legend}</div>
+    ${body}
     <p class="footnote">Advisory only. Argus does not dispatch; a human decides.</p>`;
+
+  const img = panel.querySelector(".aerial img");
+  if (img) img.addEventListener("load", () => img.classList.add("ready"));
   return panel;
+}
+
+function aerial(picture) {
+  const view = picture.imagery;
+  if (!view) return "";
+  return `<figure class="aerial">
+      <img src="${esc(view.url)}" alt="Aerial view of ${view.lat.toFixed(5)}, ${view.lon.toFixed(5)}">
+      <span class="crosshair"><i></i></span>
+      <figcaption class="cap">Esri</figcaption>
+    </figure>
+    <p class="vintage">${esc(view.caveat)} ${esc(view.attribution)}</p>`;
 }
 
 function ledgerPanel(picture) {

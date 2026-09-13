@@ -519,16 +519,23 @@ def build_picture(incident: Incident, evidence: Evidence,
             )
 
     elif evidence.hazards.ok:
+        # Same wording as the branch above. There are two paths to this row and
+        # only one of them got corrected the first time, so the empty-scan case
+        # went on claiming "none mapped" — which reads as "no hazards" — while
+        # the other path had already been fixed to say what it actually means.
         threats.append(
             Assessment.inferred(
-                "hazards", "none mapped within the scanned radius",
-                "the scan ran and returned nothing; absence in the map is not "
-                "absence on the ground", 0.5,
+                "external hazards",
+                "no mapped fuel, tanks or substations within the scanned "
+                "radius — this does not establish the site is free of hazards",
+                "a map search of the surroundings; nothing was searched or "
+                "established about conditions inside the structure", 0.4,
             )
         )
     else:
         threats.append(
-            Assessment.unknown("hazards", "the surroundings scan did not complete")
+            Assessment.unknown(
+                "external hazards", "the surroundings scan did not complete")
         )
 
     if kind is Kind.ARMED:
@@ -634,10 +641,16 @@ def build_picture(incident: Incident, evidence: Evidence,
                          hydrant_values)
     approach_rows = plan.assessments()
 
+    # An aerial of the address. No request is made here — this is the URL the
+    # browser will load, so the picture stays small and the image never enters
+    # the payload.
+    from ic.imagery import aerial_view
+
     return Picture(
         situation=tuple(situation), people=tuple(people),
         threats=tuple(threats), resources=tuple(resources),
         exposures=tuple(exposures), approach=approach_rows,
         open_questions=open_questions,
         conflicts=tuple(conflicts), ledger=ledger,
+        imagery=aerial_view(geo.point).to_dict(),
     )

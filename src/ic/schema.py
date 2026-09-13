@@ -212,6 +212,8 @@ class Picture:
     conflicts: tuple[str, ...] = ()
     ledger: "object | None" = None
     """The evidence rows every verified field points at. See `ic.evidence`."""
+    imagery: dict | None = None
+    """An aerial photograph of the location. See `ic.imagery`."""
 
     @property
     def all(self) -> tuple[Assessment, ...]:
@@ -280,6 +282,7 @@ class Picture:
             "open_questions": [a.to_dict() for a in self.open_questions],
             "conflicts": list(self.conflicts),
             "unknown_fields": list(self.unknown_fields),
+            "imagery": self.imagery,
             "traceability": round(self.traceability, 3),
             "ledger": self.ledger.to_list() if self.ledger is not None else [],
         }

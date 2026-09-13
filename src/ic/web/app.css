@@ -106,8 +106,11 @@ input[type=text]::placeholder{color:var(--ink-3)}
 
 /* ------------------------------------------------------------------ grid */
 
-.work{display:grid; grid-template-columns:198px 1fr; gap:var(--s4)}
-@media (max-width:860px){.work{grid-template-columns:1fr}}
+.work{display:grid; grid-template-columns:186px minmax(0,1.35fr) minmax(0,1fr);
+  gap:var(--s4); align-items:start}
+@media (max-width:1100px){.work{grid-template-columns:186px minmax(0,1fr)}
+  .work .aside{grid-column:1 / -1}}
+@media (max-width:820px){.work{grid-template-columns:1fr}}
 
 /* ------------------------------------------------------------ stage rail */
 
@@ -157,17 +160,37 @@ input[type=text]::placeholder{color:var(--ink-3)}
   color:var(--ink-3); margin:0 0 var(--s2); font-weight:500}
 .section h3 .why{color:var(--ink-3); opacity:.7; text-transform:none; letter-spacing:.02em}
 
-.row{display:grid; grid-template-columns:118px 148px 1fr; gap:var(--s3);
-  padding:var(--s2) 0; border-top:1px solid var(--edge); align-items:baseline}
-@media (max-width:700px){.row{grid-template-columns:1fr; gap:2px}}
+.row{display:grid; grid-template-columns:26px 128px 1fr; gap:var(--s3);
+  padding:var(--s2) 0; border-top:1px solid var(--edge); align-items:start}
+@media (max-width:620px){.row{grid-template-columns:26px 1fr; gap:var(--s2)}
+  .row .field{grid-column:2}}
 
-.state{font-family:var(--mono); font-size:9.5px; font-weight:600; letter-spacing:.11em;
-  padding:3px 7px; border-radius:5px; border:1px solid currentColor; justify-self:start}
-.state[data-s=VERIFIED]{color:var(--verified)}
-.state[data-s=REPORTED]{color:var(--reported)}
-.state[data-s=INFERRED]{color:var(--inferred)}
-.state[data-s=CONTRADICTED]{color:var(--contradicted)}
-.state[data-s=UNKNOWN]{color:var(--unknown)}
+/* The state used to be a boxed word in every row — five of them stacked read
+   as shouting and crowded out the thing each row is actually saying. It is now
+   a glass glyph the eye can scan down a column, with the word kept as a title
+   and a legend above, so the meaning never depends on colour or shape alone. */
+.state{
+  width:22px; height:22px; border-radius:7px; flex:none;
+  display:grid; place-items:center; margin-top:1px;
+  font-family:var(--mono); font-size:11px; font-weight:600; line-height:1;
+  background:linear-gradient(152deg, rgba(255,255,255,.11), rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.13);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 3px 10px rgba(0,0,0,.45);
+  cursor:default;
+}
+.state[data-s=VERIFIED]{color:var(--verified); border-color:rgba(63,207,142,.42)}
+.state[data-s=REPORTED]{color:var(--reported); border-color:rgba(201,211,218,.36)}
+.state[data-s=INFERRED]{color:var(--inferred); border-color:rgba(76,143,232,.42)}
+.state[data-s=CONTRADICTED]{color:var(--contradicted); border-color:rgba(185,140,255,.42)}
+.state[data-s=UNKNOWN]{color:var(--unknown); border-color:rgba(229,84,79,.42)}
+
+/* Legend — so a glyph is never the only thing carrying the meaning. */
+.legend{display:flex; flex-wrap:wrap; gap:var(--s3); margin:0 0 var(--s3);
+  padding-bottom:var(--s3); border-bottom:1px solid var(--edge)}
+.legend .item{display:flex; align-items:center; gap:6px;
+  font-family:var(--mono); font-size:9.5px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--ink-3)}
+.legend .state{width:18px; height:18px; border-radius:6px; font-size:9.5px}
 
 .field{font-family:var(--mono); font-size:11.5px; color:var(--ink-3)}
 .value{color:var(--ink)}
@@ -186,6 +209,31 @@ input[type=text]::placeholder{color:var(--ink-3)}
 .ledger-row .ev{margin-left:0; justify-self:start}
 .ledger-row .cite{grid-column:2 / -1; margin-top:0}
 @media (max-width:700px){.ledger-row{grid-template-columns:1fr}}
+
+/* ------------------------------------------------------------- aerial */
+
+.aerial{margin:0 0 var(--s4); border-radius:10px; overflow:hidden;
+  border:1px solid var(--edge); position:relative; background:#05070A}
+.aerial img{display:block; width:100%; height:auto; opacity:0;
+  transition:opacity .3s ease}
+.aerial img.ready{opacity:1}
+.aerial .crosshair{position:absolute; left:50%; top:50%; width:44px; height:44px;
+  margin:-22px 0 0 -22px; pointer-events:none}
+.aerial .crosshair::before,.aerial .crosshair::after{content:""; position:absolute;
+  background:rgba(255,255,255,.85); box-shadow:0 0 5px rgba(0,0,0,.9)}
+.aerial .crosshair::before{left:50%; top:0; bottom:0; width:1px; margin-left:-.5px}
+.aerial .crosshair::after{top:50%; left:0; right:0; height:1px; margin-top:-.5px}
+.aerial .crosshair i{position:absolute; inset:13px; border-radius:50%;
+  border:1px solid rgba(229,84,79,.9);
+  box-shadow:0 0 8px rgba(229,84,79,.5), inset 0 0 6px rgba(0,0,0,.5)}
+/* The credit sits on the image because the licence asks for it there. The
+   vintage caveat sits underneath, because it was covering a third of the
+   photograph — which is the one thing on this screen a human reads instantly. */
+.aerial .cap{position:absolute; right:0; bottom:0; padding:4px 8px;
+  font-family:var(--mono); font-size:9px; color:rgba(255,255,255,.7);
+  background:rgba(0,0,0,.5); border-radius:6px 0 0 0}
+.aerial + .vintage{margin:-10px 0 var(--s4); font-family:var(--mono);
+  font-size:10px; line-height:1.5; color:var(--ink-3)}
 
 /* ----------------------------------------------------------- run record */
 
