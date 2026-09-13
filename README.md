@@ -38,11 +38,11 @@ Every external claim is tied to the source that established it. Argus distinguis
 
 #### Response Team Coordination
 
+<img width="1249" height="789" alt="Screenshot 2026-09-13 at 5 10 54 PM" src="https://github.com/user-attachments/assets/20fd69c3-c657-4779-a3ec-820b4f238fea" />
+
 <img width="477" height="294" alt="Screenshot 2026-09-13 at 5 07 39 PM" src="https://github.com/user-attachments/assets/9cfd8495-24a4-4219-96c5-abe9a4bdb010" />
 
 <img width="914" height="671" alt="Screenshot 2026-09-13 at 5 08 21 PM" src="https://github.com/user-attachments/assets/a889e3c2-211e-4676-9a47-3adbb4034e7b" />
-
-<img width="1249" height="789" alt="Screenshot 2026-09-13 at 5 10 54 PM" src="https://github.com/user-attachments/assets/20fd69c3-c657-4779-a3ec-820b4f238fea" />
 
 Argus can turn the resulting incident picture into a responder-facing brief and coordinate it through connected communication tools.
 
