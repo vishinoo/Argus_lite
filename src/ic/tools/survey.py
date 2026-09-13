@@ -44,7 +44,7 @@ HAZARD_RADIUS_M = 300.0
 # added nothing a dispatcher would act on.
 RESOURCE_RADIUS_M = 3000.0
 
-_RESOURCES = ("hospital", "fire_station")
+_RESOURCES = ("hospital", "fire_station", "police")
 
 # Beyond this a hydrant is not the one you lay a line from.
 HYDRANT_RADIUS_M = 250.0

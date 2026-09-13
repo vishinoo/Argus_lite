@@ -157,10 +157,11 @@ def _claimed_storeys(description: str) -> int | None:
 
 
 def _occupancy(building: ToolResult) -> str | None:
+    """The building's use, when the record actually names one."""
     if not building.ok or not building.data:
         return None
     for f in building.data:
-        if f.field == "occupancy":
+        if f.field == "occupancy" and f.value.lower() not in _EMPTY_TAG_VALUES:
             return f.value
     return None
 
@@ -367,28 +368,59 @@ def synthesize(incident: Incident, evidence: Evidence) -> Brief:
 # "was the summary good" is not.
 # --------------------------------------------------------------------------
 
+# What makes an armed incident the incident it is. The threat row used to be
+# the whole transcript; these pick the clauses that are actually about the
+# threat, so an update naming a weapon shows up instead of being truncated off
+# the end of the opening sentence.
+# Weapons and what the suspect is doing — not casualties, which are a fact
+# about people and belong in that row. An earlier version included "down" and
+# "injured", which matched nearly every clause and made this the whole
+# transcript again under a different name.
+_THREAT_WORDS = re.compile(
+    r"\b(shot\w*|gun|guns|firearm|rifle|pistol|knife|knives|blade|weapon|"
+    r"armed|stab\w*|hostage|suspect|threat\w*|machete|explosive|bomb)\b", re.I,
+)
+
 _PEOPLE_WORDS = re.compile(
     r"\b(someone|somebody|people|occupants?|person|child|man|woman|resident|"
     r"patient|trapped|inside|staff)\b", re.I,
 )
 
 
-def _people_clause(description: str) -> str | None:
-    """The part of what the caller said that is about a person.
+def _clauses(text: str) -> list[str]:
+    """What was said, cut into the statements it was made in."""
+    if not text:
+        return []
+    parts = re.split(r"(?<=[.;])\s+|\s+\band\b\s+|,\s+", text)
+    return [c.strip(" .,;") for c in parts if c.strip(" .,;")]
 
-    The whole description already appears as the `report` field. Repeating it
-    here says nothing and, truncated to a column, says less than nothing — so
-    only the clause mentioning someone is carried.
+
+def _matching_clauses(text: str, pattern: "re.Pattern[str]",
+                      limit: int = 4) -> str | None:
+    """Every clause that matches, in the order it was said, said once.
+
+    This used to return the single longest match. A caller who said "one person
+    down" and then "another person is down" got only the second, because it was
+    the longer string — two people were down and the brief named one of them.
+    Whichever statement happened to be longest won and the rest were discarded,
+    so an update could erase the opening call or be erased by it.
     """
-    if not description:
+    seen: list[str] = []
+    for clause in _clauses(text):
+        if pattern.search(clause) and clause.lower() not in {s.lower() for s in seen}:
+            seen.append(clause)
+    if not seen:
         return None
-    clauses = re.split(r"(?<=[.;])\s+|\s+\band\b\s+|,\s+", description)
-    hits = [c.strip(" .,;") for c in clauses if _PEOPLE_WORDS.search(c)]
-    if not hits:
-        return None
-    # The most specific clause, which is almost always the longest one that
-    # mentions a person rather than the sentence that merely contains it.
-    return max(hits, key=len)
+    return "; ".join(seen[:limit])
+
+
+def _people_clause(description: str) -> str | None:
+    """The parts of what the caller said that are about a person.
+
+    The whole description already appears as the `report` field, so only the
+    clauses mentioning somebody are carried here.
+    """
+    return _matching_clauses(description, _PEOPLE_WORDS)
 
 
 def build_picture(incident: Incident, evidence: Evidence,
@@ -573,7 +605,12 @@ def build_picture(incident: Incident, evidence: Evidence,
 
     if kind is Kind.ARMED:
         threats.append(
-            Assessment.reported("threat", incident.full_text, confidence=0.35)
+            Assessment.reported(
+                "threat",
+                _matching_clauses(incident.full_text, _THREAT_WORDS)
+                or incident.description,
+                confidence=0.35,
+            )
         )
     if kind is Kind.GAS:
         threats.append(
@@ -587,6 +624,11 @@ def build_picture(incident: Incident, evidence: Evidence,
         nsrc = evidence.nearby.sources[0] if evidence.nearby.sources else None
         best: dict[str, Place] = {}
         for place in evidence.nearby.data:
+            # Police stations are fetched for armed calls and surfaced there as
+            # `police_response`. Listed here as well, they appeared on every
+            # structure fire and named the same station twice on a shooting.
+            if place.kind == "police":
+                continue
             best.setdefault(place.kind, place)
         for field, place in best.items():
             described = (f"{place.name} — {place.distance_m/1000:.1f} km, "
@@ -677,14 +719,16 @@ def build_picture(incident: Incident, evidence: Evidence,
 
     plan = plan_approach(geo.point, wind, station_places, exposure_places,
                          hydrant_values)
-    # Upwind approach, water supply and which engine arrives from which side
-    # are fire answers. An armed incident inherited all of them, so a report of
-    # shots fired came back recommending a hydrant.
+    # Upwind approach, wind, water supply and which engine arrives from which
+    # side are fire answers. Everything else inherited them, so a report of
+    # shots fired came back with the wind speed and the nearest hydrant — noise
+    # in the one column a dispatcher is meant to act from.
     approach_rows = plan.assessments()
     if kind not in (Kind.FIRE, Kind.GAS):
         approach_rows = tuple(
             a for a in approach_rows
-            if a.field not in {"approach", "water supply", "responding", "plume"}
+            if a.field not in {"approach", "conditions", "water supply",
+                               "responding", "plume"}
         )
 
     # A medical call inherited a building record and a nearest hospital and
@@ -699,7 +743,11 @@ def build_picture(incident: Incident, evidence: Evidence,
         kind, incident.full_text, storeys,
         hospital_row.value if hospital_row else None,
     ) + police_recommendations(
-        kind, [(p.name, p.kind, p.distance_m) for p in exposure_places],
+        kind,
+        [(p.name, p.kind, p.distance_m) for p in exposure_places],
+        [(p.name, p.kind, p.distance_m)
+         for p in (evidence.nearby.data or []) if p.kind == "police"]
+        if evidence.nearby.ok else [],
     )
 
     # An aerial of the address. No request is made here — this is the URL the

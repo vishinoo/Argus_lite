@@ -32,30 +32,49 @@ def _kind_name(kind) -> str:
     return getattr(kind, "value", str(kind))
 
 
-def recommendations(kind, nearby) -> tuple[Assessment, ...]:
+def recommendations(kind, nearby, stations=()) -> tuple[Assessment, ...]:
     """Advisory rows for an armed incident. Empty for anything else.
 
-    `nearby` is a sequence of (name, kind, distance_m).
+    `nearby` is a sequence of (name, kind, distance_m); `stations` the same for
+    mapped police stations.
     """
     if _kind_name(kind) != "armed":
         return ()
+
+    out: list[Assessment] = []
+
+    # Who is coming, and from how far. The fire picture has had this since the
+    # beginning; an armed incident was told which engine would arrive.
+    nearest = min(stations, key=lambda row: row[2], default=None)
+    if nearest is not None:
+        name, _, metres = nearest
+        out.append(
+            Assessment.inferred(
+                "police_response",
+                f"nearest mapped police station: {name} — {metres / 1000:.1f} km",
+                "nearest station tagged as police on the map; whether it is "
+                "staffed or the units are already committed is not established",
+                0.55,
+            )
+        )
 
     close = [
         (name, place_kind, metres) for name, place_kind, metres in nearby
         if metres <= _CONTAINMENT_M and place_kind in _RELEVANT
     ]
-    if not close:
-        return ()
+    if close:
+        close.sort(key=lambda row: row[2])
+        described = "; ".join(f"{name} — {metres:.0f} m"
+                              for name, _, metres in close[:3])
+        out.append(
+            Assessment.inferred(
+                "containment",
+                f"CONSIDER: lockdown notification — {described}",
+                "mapped places within "
+                f"{_CONTAINMENT_M:.0f} m; whether they are occupied, and whether "
+                "the suspect is still outstanding, is not established here",
+                0.55,
+            )
+        )
 
-    close.sort(key=lambda row: row[2])
-    described = "; ".join(f"{name} — {metres:.0f} m" for name, _, metres in close[:3])
-    return (
-        Assessment.inferred(
-            "containment",
-            f"CONSIDER: lockdown notification — {described}",
-            "mapped places within "
-            f"{_CONTAINMENT_M:.0f} m; whether they are occupied, and whether the "
-            "suspect is still outstanding, is not established here",
-            0.55,
-        ),
-    )
+    return tuple(out)

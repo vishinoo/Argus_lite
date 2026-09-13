@@ -163,6 +163,11 @@ over the whole call, so an update can change what kind of incident this is, add
 people the first sentence never mentioned, or disagree with the building record
 and be carried as CONTRADICTED.
 
+Statements accumulate rather than replace. A caller who says "one person down"
+and then "another person is down" gets both — the people row reads *One person
+down; another person is down*, because two people are down and a brief that
+names one of them is wrong.
+
 In the console the picture marks what moved, because an update otherwise lands
 as a wall of identical rows and the one thing that changed is the one thing
 nobody spots.
@@ -174,15 +179,20 @@ shots fired meant recommending a ladder company and the nearest hydrant. That
 is the kind of error anyone operational spots in a second.
 
 ```
-  FIRE     upwind approach side · what is in the plume · water supply ·
-           which engine arrives from which side · aerial access above
-           ground-ladder reach
+  FIRE     upwind approach side · wind · what is in the plume · water
+           supply · which engine arrives from which side · aerial access
+           above ground-ladder reach
   EMS      the floor the patient is on, however the caller phrased it ·
            lift and stretcher route · transport destination, flagged
            TIME-CRITICAL when the caller describes one
-  POLICE   who is close enough to matter — a school inside 500 m is a
-           lockdown decision somebody has to make early
+  POLICE   nearest mapped police station · who is close enough to matter,
+           because a school inside 500 m is a lockdown decision somebody
+           has to make early
 ```
+
+The gating runs the other way too. A shooting gets no wind reading, no hydrant
+and no responding engine: wind decides a plume and there is no plume, and those
+rows were crowding the one column a dispatcher is meant to act from.
 
 The EMS one prefers the caller's floor to the building's height, because the
 building's height was never the question, and because for the towers where it
